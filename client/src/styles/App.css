@@ -1,4 +1,8 @@
 /* ===== MAIN APP LAYOUT ===== */
+html {
+  scroll-behavior: smooth;
+}
+
 .hotel-booking-app {
   min-height: 100vh;
   display: flex;

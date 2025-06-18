@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const HomePage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchCriteria, setSearchCriteria] = useState({
     guestCount: 2,
     checkInDate: '',
@@ -23,6 +24,30 @@ const HomePage = () => {
       checkOutDate: dayAfter.toISOString().split('T')[0]
     }))
   }, [])
+
+  useEffect(() => {
+    // Handle anchor scrolling when page loads with hash or scroll to top if no hash
+    if (location.hash) {
+      // Use setTimeout to ensure the DOM is fully rendered
+      setTimeout(() => {
+        const element = document.querySelector(location.hash)
+        if (element) {
+          element.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start'
+          })
+        }
+      }, 100)
+    } else {
+      // If no hash, scroll to top (for home navigation)
+      setTimeout(() => {
+        window.scrollTo({ 
+          top: 0, 
+          behavior: 'smooth' 
+        })
+      }, 100)
+    }
+  }, [location.hash, location.pathname])
 
   const formatDateDisplay = (dateString) => {
     if (!dateString) return ''
@@ -194,6 +219,80 @@ const HomePage = () => {
                 SEARCH FOR ROOMS
               </button>
             </form>
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section id="about" className="about-section">
+        <div className="container">
+          <h2>About HotelBooker</h2>
+          <div className="about-content">
+            <p>
+              Welcome to HotelBooker, your premier destination for finding and booking the perfect accommodation. 
+              We specialize in connecting travelers with exceptional hotels that offer comfort, luxury, and 
+              unforgettable experiences.
+            </p>
+            <p>
+              With our extensive network of partner hotels and user-friendly booking platform, we make it easy 
+              to find the ideal room for your stay, whether you're traveling for business or pleasure.
+            </p>
+            <div className="about-features">
+              <div className="feature">
+                <h3>Best Prices</h3>
+                <p>We guarantee competitive rates and exclusive deals on hotel bookings.</p>
+              </div>
+              <div className="feature">
+                <h3>24/7 Support</h3>
+                <p>Our customer service team is available around the clock to assist you.</p>
+              </div>
+              <div className="feature">
+                <h3>Easy Booking</h3>
+                <p>Simple, secure, and fast booking process with instant confirmation.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contact" className="contact-section">
+        <div className="container">
+          <h2>Contact Us</h2>
+          <div className="contact-content">
+            <div className="contact-info">
+              <div className="contact-item">
+                <h3>Phone</h3>
+                <p>+1 (555) 123-4567</p>
+              </div>
+              <div className="contact-item">
+                <h3>Email</h3>
+                <p>support@hotelbooker.com</p>
+              </div>
+              <div className="contact-item">
+                <h3>Address</h3>
+                <p>123 Hotel Street<br />New York, NY 10001</p>
+              </div>
+              <div className="contact-item">
+                <h3>Hours</h3>
+                <p>24/7 Customer Support<br />Available everyday</p>
+              </div>
+            </div>
+            <div className="contact-form">
+              <h3>Send us a message</h3>
+              <form>
+                <div className="form-group">
+                  <input type="text" placeholder="Your Name" className="form-input" />
+                </div>
+                <div className="form-group">
+                  <input type="email" placeholder="Your Email" className="form-input" />
+                </div>
+                <div className="form-group">
+                  <textarea placeholder="Your Message" className="form-textarea" rows="5"></textarea>
+                </div>
+                <button type="submit" className="btn btn-primary">Send Message</button>
+              </form>
+            </div>
           </div>
         </div>
       </section>

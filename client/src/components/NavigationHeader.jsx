@@ -6,16 +6,41 @@ const NavigationHeader = () => {
   const { currentUser, logoutUser } = useAuth()
   const location = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
+  const [activeSection, setActiveSection] = useState('')
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.scrollY
       setIsScrolled(scrollTop > 10)
+      
+      // Only track sections on homepage
+      if (location.pathname === '/') {
+        const aboutSection = document.getElementById('about')
+        const contactSection = document.getElementById('contact')
+        
+        if (aboutSection && contactSection) {
+          const aboutTop = aboutSection.offsetTop - 100
+          const contactTop = contactSection.offsetTop - 100
+          
+          if (scrollTop >= contactTop) {
+            setActiveSection('contact')
+          } else if (scrollTop >= aboutTop) {
+            setActiveSection('about')
+          } else {
+            setActiveSection('')
+          }
+        }
+      } else {
+        setActiveSection('')
+      }
     }
 
     window.addEventListener('scroll', handleScroll)
+    // Also call on mount to set initial state
+    handleScroll()
+    
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [location.pathname])
 
   const handleUserLogout = async () => {
     try {
@@ -28,6 +53,12 @@ const NavigationHeader = () => {
   const isActivePath = (path) => {
     if (path === '/' && location.pathname === '/') return true
     if (path !== '/' && location.pathname.startsWith(path)) return true
+    return false
+  }
+
+  const isActiveAnchor = (anchor) => {
+    if (location.pathname === '/' && activeSection === anchor) return true
+    if (location.hash === `#${anchor}`) return true
     return false
   }
 
@@ -67,10 +98,10 @@ const NavigationHeader = () => {
               </li>
             )}
             <li>
-              <a href="#about" className="nav-link">About</a>
+              <a href="/#about" className={`nav-link ${isActiveAnchor('about') ? 'active' : ''}`}>About</a>
             </li>
             <li>
-              <a href="#contact" className="nav-link">Contact</a>
+              <a href="/#contact" className={`nav-link ${isActiveAnchor('contact') ? 'active' : ''}`}>Contact</a>
             </li>
           </ul>
 

@@ -19,11 +19,12 @@
 /* ===== HERO SECTION ===== */
 .hero-search-section {
   position: relative;
-  height: 400px;
+  height: 100vh;
+  min-height: 600px;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
-  padding-bottom: 60px;
+  padding-top: 25vh;
   overflow: hidden;
 }
 
@@ -369,10 +370,11 @@
 /* Mobile: max-width 768px */
 @media (max-width: 768px) {
   .hero-search-section {
-    height: auto;
+    height: 100vh;
     min-height: 500px;
-    padding: var(--spacing-8) 0;
-    align-items: center;
+    padding-top: 20vh;
+    padding-bottom: var(--spacing-8);
+    align-items: flex-start;
   }
   
   .booking-widget-container {
@@ -415,7 +417,9 @@
 /* Extra small mobile */
 @media (max-width: 480px) {
   .hero-search-section {
+    height: 100vh;
     min-height: 600px;
+    padding-top: 15vh;
   }
   
   .booking-widget {

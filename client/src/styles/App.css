@@ -75,12 +75,17 @@
   margin: 0;
   padding: 0;
   align-items: center;
+  height: var(--header-height-desktop);
 }
+
 
 @media (max-width: 768px) {
   .nav-menu {
     gap: var(--spacing-5);
+    height: var(--header-height-mobile);
   }
+  
+
 }
 
 .nav-link {
@@ -93,6 +98,7 @@
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
   position: relative;
+
 }
 
 .nav-link:hover {
@@ -123,12 +129,27 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-4);
+  height: var(--header-height-desktop);
+}
+
+@media (max-width: 768px) {
+  .user-actions {
+    height: var(--header-height-mobile);
+  }
 }
 
 .user-welcome {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+/* Navigation specific button alignment */
+.user-actions .btn {
+  align-self: center;
 }
 
 @media (max-width: 768px) {

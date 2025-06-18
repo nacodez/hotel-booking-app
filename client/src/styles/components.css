@@ -156,6 +156,12 @@
     box-shadow: var(--shadow-lg);
     border-top: 1px solid var(--color-border);
     gap: var(--spacing-3);
+    height: auto;
+  }
+  
+  .nav-menu.mobile-open li {
+    height: auto;
+    align-items: stretch;
   }
 }
 

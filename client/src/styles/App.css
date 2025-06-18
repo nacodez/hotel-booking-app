@@ -111,22 +111,6 @@ html {
   text-decoration: none;
 }
 
-.nav-link.active {
-  color: var(--color-accent);
-  font-weight: var(--font-weight-semibold);
-}
-
-.nav-link.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 2px;
-  background-color: var(--color-accent);
-  border-radius: 1px;
-}
 
 /* User Actions */
 .user-actions {

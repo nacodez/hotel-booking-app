@@ -118,14 +118,22 @@ const HomePage = () => {
 
   return (
     <div className="home-page">
-      <section className="hero-search-section">
-        {/* Hero Image Background */}
+      {/* Hero Section */}
+      <section className="hero-section">
         <div className="hero-image-container">
-          <div className="hero-image-placeholder"></div>
+          <div className="hero-slideshow">
+            <div className="slideshow-container">
+              <div className="slide"></div>
+              <div className="slide"></div>
+              <div className="slide"></div>
+            </div>
+          </div>
           <div className="hero-gradient-overlay"></div>
         </div>
+      </section>
 
-        {/* Booking Widget */}
+      {/* Booking Section */}
+      <section className="booking-search-section">
         <div className="booking-widget-container">
           <div className="booking-widget">
             <h2 className="booking-widget-title">BOOK A ROOM</h2>

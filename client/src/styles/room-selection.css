@@ -173,6 +173,7 @@
 .results-count {
   font-size: var(--text-base);
   color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
   margin: 0;
 }
 
@@ -244,7 +245,7 @@
 .sort-select {
   appearance: none;
   background-color: var(--color-background);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-md);
   padding: var(--spacing-2) var(--spacing-8) var(--spacing-2) var(--spacing-3);
   font-size: var(--text-sm);
@@ -253,16 +254,21 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   min-width: 160px;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
   background-position: right var(--spacing-2) center;
   background-repeat: no-repeat;
-  background-size: 16px 12px;
+  background-size: 20px 16px;
 }
 
 .sort-select:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border: none;
   box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.1);
+}
+
+.sort-select:active {
+  border: none;
+  outline: none;
 }
 
 .filter-toggle {

@@ -177,7 +177,7 @@
   white-space: nowrap;
 }
 
-.sort-select {
+.user-dashboard .sort-select {
   padding: var(--spacing-2) var(--spacing-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);

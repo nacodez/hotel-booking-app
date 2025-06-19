@@ -349,7 +349,7 @@
   overflow: hidden;
   transition: all var(--transition-normal);
   display: flex;
-  height: 210px;
+  height: 200px;
 }
 
 .room-card:hover {

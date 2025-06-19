@@ -106,10 +106,7 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
       .where('available', '==', true)
       .where('roomStatus', '==', 'available')
     
-    // Filter by guest capacity if specified
-    if (guestCount && guestCount > 0) {
-      roomQuery = roomQuery.where('capacity', '>=', parseInt(guestCount))
-    }
+    // Note: Filtering by capacity in-memory to avoid index requirements for demo
     
     console.log('🔥 Executing Firestore query...')
     const roomSnapshot = await roomQuery.get()
@@ -117,12 +114,18 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
 
     const availableRooms = []
     
-    // Check each room for date availability
+    // Check each room for date availability and capacity
     for (const doc of roomSnapshot.docs) {
       const roomData = doc.data()
       const roomId = doc.id
       
       console.log(`🏠 Checking room:`, { id: roomId, name: roomData.name, capacity: roomData.capacity })
+      
+      // Filter by capacity in-memory to avoid composite index requirement
+      if (guestCount && roomData.capacity < parseInt(guestCount)) {
+        console.log(`❌ Room ${roomId} capacity ${roomData.capacity} < required ${guestCount}`)
+        continue
+      }
       
       // Check if room is available for the requested dates
       const isAvailable = await checkRoomAvailability(roomId, checkInDate, checkOutDate)

@@ -106,12 +106,6 @@
   flex-direction: row-reverse;
 }
 
-.selected-dates {
-  flex: 1;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
 
 .date-range {
   display: flex;
@@ -152,6 +146,7 @@
   background-color: var(--color-background);
   padding: var(--spacing-6) var(--spacing-5);
   border-bottom: 1px solid var(--color-border);
+  margin-top: var(--spacing-8);
 }
 
 .results-header {
@@ -191,23 +186,27 @@
 
 .date-info-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  width: 100%;
   margin-bottom: var(--spacing-4);
   padding: var(--spacing-3) 0;
   border-top: 1px solid var(--color-border);
 }
 
 .guests-nights {
+  flex: 1;
   font-size: var(--text-base);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
+  text-align: right;
 }
 
 .selected-dates {
   font-weight: var(--font-weight-bold);
   font-size: var(--text-lg);
   color: var(--color-primary);
+  margin-right: auto;
 }
 
 .date-arrow {

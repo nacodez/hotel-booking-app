@@ -164,6 +164,11 @@ const SearchResultsPage = () => {
           {/* Date info row - only show in search mode */}
           {!isBrowsingMode && (
             <div className="date-info-row">
+              <div className="selected-dates">
+                <span>{formatDisplayDate(searchCriteria.checkInDate)}</span>
+                <span className="date-arrow"> → </span>
+                <span>{formatDisplayDate(searchCriteria.checkOutDate)}</span>
+              </div>
               <div className="guests-nights">
                 {(() => {
                   const nights = calculateNights()
@@ -175,11 +180,6 @@ const SearchResultsPage = () => {
                     </>
                   )
                 })()}
-              </div>
-              <div className="selected-dates">
-                <span>{formatDisplayDate(searchCriteria.checkInDate)}</span>
-                <span className="date-arrow"> → </span>
-                <span>{formatDisplayDate(searchCriteria.checkOutDate)}</span>
               </div>
             </div>
           )}

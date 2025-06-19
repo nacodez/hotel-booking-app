@@ -103,10 +103,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-direction: row-reverse;
 }
 
 .selected-dates {
   flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .date-range {
@@ -124,8 +128,10 @@
 }
 
 .booking-details {
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .nights-guests {
@@ -150,9 +156,16 @@
 
 .results-header {
   display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-5);
+}
+
+.title-count-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-5);
+  width: 100%;
 }
 
 .page-title {
@@ -168,9 +181,47 @@
   margin: 0;
 }
 
-.controls-row {
+.browse-notice {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+  padding: var(--spacing-2) 0;
+}
+
+.date-info-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-4);
+  padding: var(--spacing-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.guests-nights {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.selected-dates {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-lg);
+  color: var(--color-primary);
+}
+
+.date-arrow {
+  font-size: var(--text-xl);
+  color: var(--color-accent);
+}
+
+.separator {
+  color: var(--color-border);
+}
+
+.controls-row {
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--spacing-4);
 }

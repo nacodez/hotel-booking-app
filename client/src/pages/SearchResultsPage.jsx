@@ -15,12 +15,6 @@ const SearchResultsPage = () => {
   const [searchCriteria, setSearchCriteria] = useState({})
   const [isBrowsingMode, setIsBrowsingMode] = useState(false)
   const [sortBy, setSortBy] = useState('price-low')
-  const [filters, setFilters] = useState({
-    roomType: '',
-    amenities: [],
-    priceRange: { min: 0, max: 10000 }
-  })
-  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search)
@@ -68,29 +62,9 @@ const SearchResultsPage = () => {
     fetchRooms()
   }, [location.search])
 
-  // Sort and filter rooms
+  // Sort rooms
   useEffect(() => {
     let rooms = [...availableRooms]
-
-    // Apply filters
-    if (filters.roomType) {
-      rooms = rooms.filter(room => room.roomType === filters.roomType)
-    }
-
-    if (filters.amenities.length > 0) {
-      rooms = rooms.filter(room => 
-        filters.amenities.some(amenity => 
-          room.amenities.some(roomAmenity => 
-            roomAmenity.toLowerCase().includes(amenity.toLowerCase())
-          )
-        )
-      )
-    }
-
-    rooms = rooms.filter(room => {
-      const price = room.pricePerNight || room.price || 0
-      return price >= filters.priceRange.min && price <= filters.priceRange.max
-    })
 
     // Apply sorting
     switch (sortBy) {
@@ -108,10 +82,29 @@ const SearchResultsPage = () => {
     }
 
     setFilteredRooms(rooms)
-  }, [availableRooms, sortBy, filters])
+  }, [availableRooms, sortBy])
 
   const handleSortChange = (e) => {
     setSortBy(e.target.value)
+  }
+
+  // Date formatting functions
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).toUpperCase().replace(',', ',')
+  }
+
+  const calculateNights = () => {
+    if (!searchCriteria.checkInDate || !searchCriteria.checkOutDate) return 0
+    const checkIn = new Date(searchCriteria.checkInDate)
+    const checkOut = new Date(searchCriteria.checkOutDate)
+    const timeDiff = checkOut.getTime() - checkIn.getTime()
+    return Math.ceil(timeDiff / (1000 * 3600 * 24))
   }
 
   const handleBookRoom = (room) => {
@@ -142,43 +135,57 @@ const SearchResultsPage = () => {
     })
   }
 
-  const toggleFilters = () => {
-    setShowFilters(!showFilters)
-  }
 
   return (
     <div className="room-selection-page">
       {/* Progress Indicator - only show in search mode */}
       {!isBrowsingMode && <BookingProgressIndicator currentStep={2} />}
-      
-      {/* Date Summary Bar - only show in search mode */}
-      {!isBrowsingMode && (
-        <DateSummaryBar 
-          checkInDate={searchCriteria.checkInDate}
-          checkOutDate={searchCriteria.checkOutDate}
-          guestCount={searchCriteria.guestCount}
-          roomCount={searchCriteria.roomCount}
-        />
-      )}
 
       <div className="container">
         {/* Filters and Sort Section */}
         <div className="room-controls">
           <div className="results-header">
-            <h1 className="page-title">
-              {isBrowsingMode ? 'Browse All Rooms' : 'Select Your Room'}
-            </h1>
-            <p className="results-count">
-              {isLoadingResults ? 'Loading...' : `${filteredRooms.length} rooms ${isBrowsingMode ? 'available' : 'found'}`}
-            </p>
             {isBrowsingMode && (
               <p className="browse-notice">
                 Browse our collection of rooms. To check availability and book, please select your dates.
               </p>
             )}
+            
+            <div className="title-count-row">
+              <h1 className="page-title">
+                {isBrowsingMode ? 'Browse All Rooms' : 'Select Your Room'}
+              </h1>
+              <p className="results-count">
+                {isLoadingResults ? 'Loading...' : `${filteredRooms.length} rooms ${isBrowsingMode ? 'available' : 'found'}`}
+              </p>
+            </div>
           </div>
 
+          {/* Date info row - only show in search mode */}
+          {!isBrowsingMode && (
+            <div className="date-info-row">
+              <div className="guests-nights">
+                {(() => {
+                  const nights = calculateNights()
+                  return (
+                    <>
+                      <span>{nights} {nights === 1 ? 'Night' : 'Nights'}</span>
+                      <span className="separator"> • </span>
+                      <span>{searchCriteria.guestCount || 1} {(searchCriteria.guestCount || 1) === 1 ? 'Guest' : 'Guests'}</span>
+                    </>
+                  )
+                })()}
+              </div>
+              <div className="selected-dates">
+                <span>{formatDisplayDate(searchCriteria.checkInDate)}</span>
+                <span className="date-arrow"> → </span>
+                <span>{formatDisplayDate(searchCriteria.checkOutDate)}</span>
+              </div>
+            </div>
+          )}
+
           <div className="controls-row">
+            <div></div>
             <div className="sort-section">
               <label htmlFor="sort-select" className="sort-label">Sort by:</label>
               <div className="sort-dropdown">
@@ -193,30 +200,6 @@ const SearchResultsPage = () => {
                   <option value="name">ROOM NAME</option>
                 </select>
               </div>
-            </div>
-
-            <button 
-              className="filter-toggle btn btn-secondary"
-              onClick={toggleFilters}
-            >
-              Filters {showFilters ? '−' : '+'}
-            </button>
-          </div>
-
-          {/* Collapsible Filters */}
-          <div className={`filters-section ${showFilters ? 'show' : ''}`}>
-            <div className="filter-group">
-              <label>Room Type:</label>
-              <select 
-                value={filters.roomType} 
-                onChange={(e) => setFilters(prev => ({...prev, roomType: e.target.value}))}
-                className="filter-select"
-              >
-                <option value="">All Types</option>
-                <option value="standard">Standard</option>
-                <option value="suite">Suite</option>
-                <option value="executive">Executive</option>
-              </select>
             </div>
           </div>
         </div>

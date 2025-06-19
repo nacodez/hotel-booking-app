@@ -17,7 +17,11 @@
     "migrations:run": "node -e \"import('./utils/backup.js').then(m => new m.MigrationService().runPendingMigrations())\"",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:indexes": "firebase deploy --only firestore:indexes",
-    "seed:database": "node scripts/seedDatabase.js"
+    "seed:database": "node scripts/seedDatabase.js",
+    "users:list": "node scripts/list-users.js",
+    "users:pending": "node scripts/list-users.js --status pending-approval",
+    "users:active": "node scripts/list-users.js --status active",
+    "users:hotel-owners": "node scripts/list-users.js --role hotel-owner"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

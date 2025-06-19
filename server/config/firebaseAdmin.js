@@ -20,9 +20,8 @@ export const initializeFirebaseAdmin = () => {
       return admin
     }
 
-    // Check if using demo/emulator mode
+    // Check if using demo/emulator mode - only use emulator for actual demo project
     const isDemoMode = process.env.FIREBASE_PROJECT_ID === 'demo-project' || 
-                       process.env.NODE_ENV === 'development' || 
                        process.env.USE_EMULATOR === 'true'
 
     if (isDemoMode) {
@@ -59,6 +58,14 @@ export const initializeFirebaseAdmin = () => {
           throw new Error(`Missing required Firebase credential: ${field}`)
         }
       }
+
+      console.log('🔍 Firebase credentials check:', {
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID,
+        privateKeyLength: process.env.FIREBASE_PRIVATE_KEY?.length || 0,
+        hasNewlines: process.env.FIREBASE_PRIVATE_KEY?.includes('\\n') || false
+      })
       
       const serviceAccount = {
         type: "service_account",
@@ -92,6 +99,28 @@ export const initializeFirebaseAdmin = () => {
 
   } catch (error) {
     console.error('Error initializing Firebase Admin:', error)
+    
+    // If production mode fails, try emulator mode as fallback
+    if (!isDemoMode) {
+      console.log('🔄 Falling back to emulator mode...')
+      try {
+        admin.initializeApp({
+          projectId: 'demo-project',
+          databaseURL: 'https://demo-project-default-rtdb.firebaseio.com'
+        })
+        
+        db = admin.firestore()
+        process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080'
+        console.log('🔥 Using Firestore emulator at:', process.env.FIRESTORE_EMULATOR_HOST)
+        
+        firebaseAdminInitialized = true
+        console.log('✅ Firebase Admin initialized in emulator fallback mode')
+        return admin
+      } catch (fallbackError) {
+        console.error('Fallback to emulator also failed:', fallbackError)
+      }
+    }
+    
     throw new Error('Failed to initialize Firebase Admin SDK')
   }
 

@@ -75,13 +75,12 @@ const RoomCard = ({ room, onBookRoom, isLoading = false, buttonText = 'BOOK ROOM
             
             {room.amenities && room.amenities.length > 0 && (
               <div className="room-amenities">
-                {room.amenities.slice(0, 4).map((amenity, index) => (
+                {room.amenities.slice(0, 3).map((amenity, index) => (
                   <span key={index} className="amenity-tag">{amenity}</span>
                 ))}
               </div>
             )}
-          </div>
-
+            
           <div className="room-booking">
             <div className="room-pricing">
               <div className="room-price">
@@ -100,6 +99,8 @@ const RoomCard = ({ room, onBookRoom, isLoading = false, buttonText = 'BOOK ROOM
               {buttonText}
             </button>
           </div>
+          </div>
+
         </div>
       </div>
     </div>

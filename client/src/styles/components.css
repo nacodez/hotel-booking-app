@@ -30,10 +30,6 @@
   box-shadow: var(--shadow-md);
 }
 
-.room-content {
-  margin-bottom: var(--spacing-8);
-}
-
 .room-content h1 {
   margin-bottom: var(--spacing-4);
 }

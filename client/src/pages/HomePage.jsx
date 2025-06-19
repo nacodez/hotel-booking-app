@@ -118,22 +118,25 @@ const HomePage = () => {
 
   return (
     <div className="home-page">
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-image-container">
-          <div className="hero-slideshow">
-            <div className="slideshow-container">
-              <div className="slide"></div>
-              <div className="slide"></div>
-              <div className="slide"></div>
+      {/* Home Hero Section - exactly one viewport */}
+      <section className="home-hero-section">
+        <div className="home-content-wrapper">
+          {/* Hero Section */}
+          <section className="hero-section">
+            <div className="hero-image-container">
+              <div className="hero-slideshow">
+                <div className="slideshow-container">
+                  <div className="slide"></div>
+                  <div className="slide"></div>
+                  <div className="slide"></div>
+                </div>
+              </div>
+              <div className="hero-gradient-overlay"></div>
             </div>
-          </div>
-          <div className="hero-gradient-overlay"></div>
-        </div>
-      </section>
+          </section>
 
-      {/* Booking Section */}
-      <section className="booking-search-section">
+          {/* Booking Section */}
+          <section className="booking-search-section">
         <div className="booking-widget-container">
           <div className="booking-widget">
             <h2 className="booking-widget-title">BOOK A ROOM</h2>
@@ -228,6 +231,8 @@ const HomePage = () => {
               </button>
             </form>
           </div>
+        </div>
+      </section>
         </div>
       </section>
 

@@ -69,10 +69,10 @@ const SearchResultsPage = () => {
     // Apply sorting
     switch (sortBy) {
       case 'price-low':
-        rooms.sort((a, b) => (a.pricePerNight || a.price || 0) - (b.pricePerNight || b.price || 0))
+        rooms.sort((a, b) => (a.price || 0) - (b.price || 0))
         break
       case 'price-high':
-        rooms.sort((a, b) => (b.pricePerNight || b.price || 0) - (a.pricePerNight || a.price || 0))
+        rooms.sort((a, b) => (b.price || 0) - (a.price || 0))
         break
       case 'name':
         rooms.sort((a, b) => a.title.localeCompare(b.title))
@@ -115,7 +115,7 @@ const SearchResultsPage = () => {
           selectedRoom: {
             id: room.id,
             title: room.title,
-            price: room.pricePerNight || room.price
+            price: room.price
           }
         }
       })

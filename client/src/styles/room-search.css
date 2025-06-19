@@ -3,7 +3,21 @@
 .home-page {
   min-height: 100vh;
   animation: fadeIn 0.8s ease-out;
-  padding: var(--spacing-4) var(--spacing-5);
+  background-color: var(--color-secondary);
+  position: relative;
+  margin-top: -80px;
+}
+
+/* ===== HOME HERO SECTION (first viewport) ===== */
+.home-hero-section {
+  height: 100vh;
+  padding-top: calc(80px + var(--spacing-4));
+  padding-left: var(--spacing-5);
+  padding-right: var(--spacing-5);
+  padding-bottom: var(--spacing-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   background-color: var(--color-secondary);
 }
 
@@ -18,12 +32,22 @@
   }
 }
 
+/* ===== HOME CONTENT WRAPPER ===== */
+.home-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-6);
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
 /* ===== HERO SECTION ===== */
 .hero-section {
   position: relative;
   height: 300px;
-  max-width: 1000px;
-  margin: 0 auto var(--spacing-6);
+  width: 100%;
   overflow: hidden;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
@@ -32,7 +56,7 @@
 
 /* ===== BOOKING SECTION ===== */
 .booking-search-section {
-  padding: var(--spacing-4) 0;
+  width: 100%;
   background-color: var(--color-secondary);
 }
 
@@ -391,14 +415,20 @@
 
 /* Mobile: max-width 768px */
 @media (max-width: 768px) {
-  .home-page {
+  .home-hero-section {
+    height: auto;
+    min-height: 100vh;
     padding: var(--spacing-3) var(--spacing-4);
+    justify-content: center;
+  }
+  
+  .home-content-wrapper {
+    gap: var(--spacing-4);
   }
   
   .hero-section {
     height: 250px;
     max-width: 95%;
-    margin: 0 auto var(--spacing-4);
   }
   
   .booking-search-section {
@@ -444,14 +474,17 @@
 
 /* Extra small mobile */
 @media (max-width: 480px) {
-  .home-page {
+  .home-hero-section {
     padding: var(--spacing-2) var(--spacing-3);
+  }
+  
+  .home-content-wrapper {
+    gap: var(--spacing-3);
   }
   
   .hero-section {
     height: 200px;
     max-width: 100%;
-    margin: 0 0 var(--spacing-3);
     border-radius: var(--radius-md);
   }
   

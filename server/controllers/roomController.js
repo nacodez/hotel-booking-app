@@ -242,7 +242,6 @@ export const getAllRooms = asyncHandler(async (req, res) => {
         description: roomData.description,
         image: roomData.images?.[0] || '/placeholder-room.jpg',
         price: roomData.price,
-        pricePerNight: roomData.price,
         amenities: roomData.amenities || [],
         roomType: roomData.type,
         capacity: roomData.capacity,
@@ -251,6 +250,8 @@ export const getAllRooms = asyncHandler(async (req, res) => {
         roomNumber: roomData.roomNumber,
         hotelId: roomData.hotelId
       })
+      
+      console.log(`✅ Added room to response: ${roomData.name} - Price: ${roomData.price}, PricePerNight: ${roomData.price}`)
     })
 
     console.log(`✅ Returning ${rooms.length} formatted rooms`)

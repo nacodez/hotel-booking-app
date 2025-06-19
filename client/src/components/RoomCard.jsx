@@ -85,7 +85,7 @@ const RoomCard = ({ room, onBookRoom, isLoading = false, buttonText = 'BOOK ROOM
           <div className="room-booking">
             <div className="room-pricing">
               <div className="room-price">
-                {formatPrice(room.pricePerNight || 1080)}/night
+                {formatPrice(room.price || 150)}/night
               </div>
               <div className="price-disclaimer">
                 Subject to GST and charges

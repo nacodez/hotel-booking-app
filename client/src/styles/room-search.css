@@ -232,7 +232,13 @@
 /* Date Input Specific Styles */
 .booking-date {
   color: transparent;
+  text-indent: -9999px;
   position: relative;
+}
+
+.booking-date:focus {
+  color: transparent;
+  text-indent: -9999px;
 }
 
 .booking-date::-webkit-calendar-picker-indicator {
@@ -251,9 +257,12 @@
   transform: translateY(-50%);
   color: var(--color-primary);
   font-weight: var(--font-weight-medium);
+  font-size: var(--text-base);
   pointer-events: none;
   opacity: 1;
   transition: all var(--transition-fast);
+  z-index: 2;
+  background: transparent;
 }
 
 .booking-input:focus .field-icon {

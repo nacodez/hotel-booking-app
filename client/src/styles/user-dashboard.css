@@ -481,7 +481,7 @@
   color: var(--color-primary);
 }
 
-.results-count {
+.user-dashboard .results-count {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }

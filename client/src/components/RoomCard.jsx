@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const RoomCard = ({ room, onBookRoom, isLoading = false }) => {
+const RoomCard = ({ room, onBookRoom, isLoading = false, buttonText = 'BOOK ROOM' }) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
 
@@ -95,7 +95,7 @@ const RoomCard = ({ room, onBookRoom, isLoading = false }) => {
               onClick={handleBookRoom}
               disabled={isLoading}
             >
-              BOOK ROOM
+              {buttonText}
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { hotelBookingAPI } from '../services/apiService'
+import { hotelBookingAPI, roomAPI } from '../services/apiService'
 import BookingProgressIndicator from '../components/BookingProgressIndicator'
 import DateSummaryBar from '../components/DateSummaryBar'
 import RoomCard from '../components/RoomCard'
@@ -13,6 +13,7 @@ const SearchResultsPage = () => {
   const [isLoadingResults, setIsLoadingResults] = useState(true)
   const [searchError, setSearchError] = useState(null)
   const [searchCriteria, setSearchCriteria] = useState({})
+  const [isBrowsingMode, setIsBrowsingMode] = useState(false)
   const [sortBy, setSortBy] = useState('price-low')
   const [filters, setFilters] = useState({
     roomType: '',
@@ -32,81 +33,39 @@ const SearchResultsPage = () => {
     }
     setSearchCriteria(criteria)
 
-    const fetchAvailableRooms = async () => {
+    const hasSearchCriteria = criteria.destinationCity && criteria.checkInDate && criteria.checkOutDate
+    setIsBrowsingMode(!hasSearchCriteria)
+
+    const fetchRooms = async () => {
       try {
         setIsLoadingResults(true)
         setSearchError(null)
         
-        // Call real API instead of using mock data
-        const response = await hotelBookingAPI.searchAvailableRooms(criteria)
+        let response
+        
+        if (hasSearchCriteria) {
+          // Search with specific criteria
+          response = await hotelBookingAPI.searchAvailableRooms(criteria)
+        } else {
+          // Browse all rooms when no search criteria
+          response = await roomAPI.getAllRooms()
+        }
         
         if (response.success) {
           setAvailableRooms(response.data)
           setFilteredRooms(response.data)
         } else {
-          throw new Error(response.message || 'Failed to search rooms')
+          throw new Error(response.message || 'Failed to fetch rooms')
         }
       } catch (error) {
         console.error('Error fetching rooms:', error)
-        
-        // If API fails, fall back to mock data for demo purposes
-        console.log('Falling back to mock data for demo...')
-        const mockRooms = [
-          {
-            id: 'room_1',
-            title: 'DELUXE OCEAN VIEW SUITE',
-            subtitle: 'LOREM IPSUM DOLOR SIT AMET',
-            description: 'Spacious suite with breathtaking ocean views, featuring premium amenities and elegant furnishings for the ultimate luxury experience.',
-            image: '/placeholder-room.jpg',
-            price: 1080,
-            pricePerNight: 1080,
-            amenities: ['Ocean View', 'King Bed', 'WiFi', 'Balcony'],
-            roomType: 'suite',
-            capacity: 2,
-            maxOccupancy: 2
-          },
-          {
-            id: 'room_2',
-            title: 'PREMIUM CITY ROOM',
-            subtitle: 'CONSECTETUR ADIPISCING ELIT',
-            description: 'Modern city room with contemporary design and all essential amenities for a comfortable stay in the heart of the city.',
-            image: '/placeholder-room.jpg',
-            price: 750,
-            pricePerNight: 750,
-            amenities: ['City View', 'Queen Bed', 'WiFi', 'Work Desk'],
-            roomType: 'standard',
-            capacity: 2,
-            maxOccupancy: 2
-          },
-          {
-            id: 'room_3',
-            title: 'EXECUTIVE BUSINESS SUITE',
-            subtitle: 'SED DO EIUSMOD TEMPOR',
-            description: 'Perfect for business travelers, featuring a separate work area, high-speed internet, and executive lounge access.',
-            image: '/placeholder-room.jpg',
-            price: 1350,
-            pricePerNight: 1350,
-            amenities: ['Lounge Access', 'King Bed', 'Work Area', 'Minibar'],
-            roomType: 'executive',
-            capacity: 2,
-            maxOccupancy: 2
-          }
-        ]
-        
-        setAvailableRooms(mockRooms)
-        setFilteredRooms(mockRooms)
-        setSearchError('Using demo data - API connection pending')
+        setSearchError('Unable to load rooms. Please try again later.')
       } finally {
         setIsLoadingResults(false)
       }
     }
 
-    if (criteria.destinationCity && criteria.checkInDate && criteria.checkOutDate) {
-      fetchAvailableRooms()
-    } else {
-      setSearchError('Missing required search parameters')
-      setIsLoadingResults(false)
-    }
+    fetchRooms()
   }, [location.search])
 
   // Sort and filter rooms
@@ -156,6 +115,21 @@ const SearchResultsPage = () => {
   }
 
   const handleBookRoom = (room) => {
+    // If in browsing mode, redirect to home to select dates first
+    if (isBrowsingMode) {
+      navigate('/?selectDates=true', {
+        state: {
+          selectedRoom: {
+            id: room.id,
+            title: room.title,
+            price: room.pricePerNight || room.price
+          }
+        }
+      })
+      return
+    }
+
+    // Normal booking flow with search criteria
     navigate('/booking/confirmation', {
       state: {
         bookingDetails: {
@@ -174,25 +148,34 @@ const SearchResultsPage = () => {
 
   return (
     <div className="room-selection-page">
-      {/* Progress Indicator */}
-      <BookingProgressIndicator currentStep={2} />
+      {/* Progress Indicator - only show in search mode */}
+      {!isBrowsingMode && <BookingProgressIndicator currentStep={2} />}
       
-      {/* Date Summary Bar */}
-      <DateSummaryBar 
-        checkInDate={searchCriteria.checkInDate}
-        checkOutDate={searchCriteria.checkOutDate}
-        guestCount={searchCriteria.guestCount}
-        roomCount={searchCriteria.roomCount}
-      />
+      {/* Date Summary Bar - only show in search mode */}
+      {!isBrowsingMode && (
+        <DateSummaryBar 
+          checkInDate={searchCriteria.checkInDate}
+          checkOutDate={searchCriteria.checkOutDate}
+          guestCount={searchCriteria.guestCount}
+          roomCount={searchCriteria.roomCount}
+        />
+      )}
 
       <div className="container">
         {/* Filters and Sort Section */}
         <div className="room-controls">
           <div className="results-header">
-            <h1 className="page-title">Select Your Room</h1>
+            <h1 className="page-title">
+              {isBrowsingMode ? 'Browse All Rooms' : 'Select Your Room'}
+            </h1>
             <p className="results-count">
-              {isLoadingResults ? 'Loading...' : `${filteredRooms.length} rooms available`}
+              {isLoadingResults ? 'Loading...' : `${filteredRooms.length} rooms ${isBrowsingMode ? 'available' : 'found'}`}
             </p>
+            {isBrowsingMode && (
+              <p className="browse-notice">
+                Browse our collection of rooms. To check availability and book, please select your dates.
+              </p>
+            )}
           </div>
 
           <div className="controls-row">
@@ -280,6 +263,7 @@ const SearchResultsPage = () => {
                   key={room.id} 
                   room={room} 
                   onBookRoom={handleBookRoom}
+                  buttonText={isBrowsingMode ? 'Select Dates' : 'Book Now'}
                 />
               ))}
             </div>

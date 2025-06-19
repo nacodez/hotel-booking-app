@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const NavigationHeader = () => {
   const { currentUser, logoutUser } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [isScrolled, setIsScrolled] = useState(false)
 
   useEffect(() => {
@@ -20,8 +21,11 @@ const NavigationHeader = () => {
   const handleUserLogout = async () => {
     try {
       await logoutUser()
+      navigate('/')
     } catch (error) {
       console.error('Error during logout:', error)
+      // Still redirect to home even if logout API fails
+      navigate('/')
     }
   }
 

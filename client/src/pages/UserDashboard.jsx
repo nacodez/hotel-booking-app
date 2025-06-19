@@ -235,9 +235,11 @@ const UserDashboard = () => {
   const handleLogout = async () => {
     try {
       await logoutUser()
-      navigate('/login')
+      navigate('/')
     } catch (error) {
       console.error('Logout error:', error)
+      // Still redirect to home even if logout API fails
+      navigate('/')
     }
   }
 
@@ -271,11 +273,6 @@ const UserDashboard = () => {
             <p className="welcome-subtitle">
               Manage your bookings and explore new destinations
             </p>
-          </div>
-          <div className="header-actions">
-            <button className="btn btn-secondary" onClick={handleLogout}>
-              Sign Out
-            </button>
           </div>
         </div>
 

@@ -18,6 +18,53 @@ import {
 
 const firestore = getFirestoreAdmin()
 
+// Helper function to check if dates overlap
+const datesOverlap = (start1, end1, start2, end2) => {
+  const s1 = new Date(start1)
+  const e1 = new Date(end1)
+  const s2 = new Date(start2)
+  const e2 = new Date(end2)
+  
+  return s1 < e2 && e1 > s2
+}
+
+// Helper function to check room availability for specific dates
+const checkRoomAvailability = async (roomId, checkInDate, checkOutDate) => {
+  try {
+    console.log(`🔍 Checking availability for room ${roomId} from ${checkInDate} to ${checkOutDate}`)
+    
+    const bookingsRef = firestore.collection('bookings')
+    const bookingsQuery = bookingsRef
+      .where('roomId', '==', roomId)
+      .where('status', 'in', ['confirmed', 'checked-in']) // Only active bookings
+    
+    const bookingsSnapshot = await bookingsQuery.get()
+    
+    if (bookingsSnapshot.empty) {
+      console.log(`✅ No conflicting bookings found for room ${roomId}`)
+      return true
+    }
+    
+    // Check for date conflicts
+    let hasConflict = false
+    bookingsSnapshot.forEach(doc => {
+      const booking = doc.data()
+      if (datesOverlap(checkInDate, checkOutDate, booking.checkInDate, booking.checkOutDate)) {
+        console.log(`❌ Date conflict found for room ${roomId}:`, {
+          requested: { checkInDate, checkOutDate },
+          existing: { checkInDate: booking.checkInDate, checkOutDate: booking.checkOutDate }
+        })
+        hasConflict = true
+      }
+    })
+    
+    return !hasConflict
+  } catch (error) {
+    console.error(`Error checking availability for room ${roomId}:`, error)
+    return false
+  }
+}
+
 export const searchAvailableRooms = asyncHandler(async (req, res) => {
   const { destinationCity, checkInDate, checkOutDate, guestCount, roomCount } = req.body
 
@@ -30,31 +77,84 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
     })
   }
 
+  // Validate dates
+  const checkIn = new Date(checkInDate)
+  const checkOut = new Date(checkOutDate)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  if (checkIn < today) {
+    return res.status(400).json({
+      success: false,
+      message: 'Check-in date cannot be in the past'
+    })
+  }
+
+  if (checkOut <= checkIn) {
+    return res.status(400).json({
+      success: false,
+      message: 'Check-out date must be after check-in date'
+    })
+  }
+
   try {
     console.log('📊 Querying rooms collection...')
     const roomsRef = firestore.collection('rooms')
     
-    // Simplified query - just get all available rooms for now
-    let roomQuery = roomsRef.where('available', '==', true)
+    // Query for available rooms with proper status
+    let roomQuery = roomsRef
+      .where('available', '==', true)
+      .where('roomStatus', '==', 'available')
+    
+    // Filter by guest capacity if specified
+    if (guestCount && guestCount > 0) {
+      roomQuery = roomQuery.where('capacity', '>=', parseInt(guestCount))
+    }
     
     console.log('🔥 Executing Firestore query...')
     const roomSnapshot = await roomQuery.get()
-    console.log(`📋 Found ${roomSnapshot.size} rooms`)
+    console.log(`📋 Found ${roomSnapshot.size} potentially available rooms`)
 
     const availableRooms = []
     
-    roomSnapshot.forEach(doc => {
+    // Check each room for date availability
+    for (const doc of roomSnapshot.docs) {
       const roomData = doc.data()
-      console.log(`🏠 Room data:`, { id: doc.id, name: roomData.name, capacity: roomData.capacity })
+      const roomId = doc.id
       
-      // Filter by capacity if needed
-      if (!guestCount || roomData.capacity >= guestCount) {
+      console.log(`🏠 Checking room:`, { id: roomId, name: roomData.name, capacity: roomData.capacity })
+      
+      // Check if room is available for the requested dates
+      const isAvailable = await checkRoomAvailability(roomId, checkInDate, checkOutDate)
+      
+      if (isAvailable) {
+        console.log(`✅ Room ${roomId} is available`)
+        
+        // Calculate total nights and price
+        const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+        const totalPrice = roomData.price * nights
+        
         availableRooms.push({
-          id: doc.id,
-          ...roomData
+          id: roomId,
+          title: roomData.name,
+          subtitle: `${roomData.type.charAt(0).toUpperCase() + roomData.type.slice(1)} Room`,
+          description: roomData.description,
+          image: roomData.images?.[0] || '/placeholder-room.jpg',
+          price: totalPrice,
+          pricePerNight: roomData.price,
+          nights: nights,
+          amenities: roomData.amenities || [],
+          roomType: roomData.type,
+          capacity: roomData.capacity,
+          maxOccupancy: roomData.maxOccupancy || roomData.capacity,
+          bedType: roomData.bedType,
+          roomNumber: roomData.roomNumber,
+          hotelId: roomData.hotelId
         })
+      } else {
+        console.log(`❌ Room ${roomId} is not available for requested dates`)
       }
-    })
+    }
 
     console.log(`✅ Returning ${availableRooms.length} available rooms`)
 
@@ -121,16 +221,39 @@ export const getRoomDetails = asyncHandler(async (req, res) => {
 
 export const getAllRooms = asyncHandler(async (req, res) => {
   try {
+    console.log('📊 Fetching all available rooms...')
     const roomsRef = firestore.collection('rooms')
-    const roomSnapshot = await roomsRef.where('available', '==', true).get()
+    const roomSnapshot = await roomsRef
+      .where('available', '==', true)
+      .where('roomStatus', '==', 'available')
+      .get()
+
+    console.log(`📋 Found ${roomSnapshot.size} available rooms`)
 
     const rooms = []
     roomSnapshot.forEach(doc => {
+      const roomData = doc.data()
+      
+      // Format room data consistently with search results
       rooms.push({
         id: doc.id,
-        ...doc.data()
+        title: roomData.name || roomData.title,
+        subtitle: `${roomData.type ? roomData.type.charAt(0).toUpperCase() + roomData.type.slice(1) : 'Standard'} Room`,
+        description: roomData.description,
+        image: roomData.images?.[0] || '/placeholder-room.jpg',
+        price: roomData.price,
+        pricePerNight: roomData.price,
+        amenities: roomData.amenities || [],
+        roomType: roomData.type,
+        capacity: roomData.capacity,
+        maxOccupancy: roomData.maxOccupancy || roomData.capacity,
+        bedType: roomData.bedType,
+        roomNumber: roomData.roomNumber,
+        hotelId: roomData.hotelId
       })
     })
+
+    console.log(`✅ Returning ${rooms.length} formatted rooms`)
 
     res.json({
       success: true,

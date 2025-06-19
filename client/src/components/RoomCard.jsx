@@ -65,8 +65,10 @@ const RoomCard = ({ room, onBookRoom, isLoading = false, buttonText = 'BOOK ROOM
         {/* Room Details */}
         <div className="room-details">
           <div className="room-content">
-            <h3 className="room-title">{room.title || 'ROOM TITLE'}</h3>
-            <p className="room-subtitle">{room.subtitle || 'LOREM IPSUM DOLOR SIT AMET'}</p>
+            <h3 className="room-title">{room.title || room.name || 'ROOM TITLE'}</h3>
+            <p className="room-subtitle">
+              {room.subtitle || (room.type ? `${room.type.charAt(0).toUpperCase() + room.type.slice(1)} Room` : 'LOREM IPSUM DOLOR SIT AMET')}
+            </p>
             <p className="room-description">
               {room.description || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'}
             </p>

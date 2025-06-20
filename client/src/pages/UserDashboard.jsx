@@ -19,6 +19,7 @@ const UserDashboard = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [bookingToCancel, setBookingToCancel] = useState(null)
+  const [bookingError, setBookingError] = useState(null)
 
   const bookingsPerPage = 6
 
@@ -27,27 +28,47 @@ const UserDashboard = () => {
     const fetchUserBookings = async () => {
       try {
         setIsLoadingBookings(true)
+        setBookingError(null)
+        
+        // Check authentication
+        console.log('🔐 Current user:', currentUser)
+        console.log('🔐 User ID:', currentUser?.id || currentUser?.uid || 'No user ID')
+        console.log('🔐 Auth token:', localStorage.getItem('authToken') ? 'Present' : 'Missing')
         
         // Fetch user's booking history
         console.log('📚 Fetching user booking history...')
         const bookingResponse = await bookingAPI.getUserBookingHistory()
+        
+        console.log('📚 Full API Response:', JSON.stringify(bookingResponse, null, 2))
         
         if (!bookingResponse.success) {
           throw new Error(bookingResponse.message || 'Failed to fetch bookings')
         }
 
         const bookings = bookingResponse.data || []
+        console.log('📚 Number of bookings found:', bookings.length)
         console.log('📚 Raw bookings from API:', bookings)
 
+        if (bookings.length === 0) {
+          console.log('📚 No bookings found for user')
+          setUserBookings([])
+          return
+        }
+
         // Fetch room details for each booking to get images
+        console.log('🏨 Fetching room details for', bookings.length, 'bookings...')
         const enrichedBookings = await Promise.all(
-          bookings.map(async (booking) => {
+          bookings.map(async (booking, index) => {
             try {
+              console.log(`🏨 Fetching room details for booking ${index + 1}/${bookings.length} - Room ID: ${booking.roomId}`)
+              
               // Get room details to fetch the image
               const roomResponse = await roomAPI.getRoomDetails(booking.roomId)
               const roomData = roomResponse.success ? roomResponse.data : null
               
-              return {
+              console.log(`🏨 Room response for ${booking.roomId}:`, roomResponse.success ? 'Success' : 'Failed')
+              
+              const enrichedBooking = {
                 ...booking,
                 roomImage: roomData?.images?.[0] || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
                 // Map Firebase structure to component expectations
@@ -59,6 +80,16 @@ const UserDashboard = () => {
                 specialRequests: booking.guestInformation?.specialRequests || '',
                 bookedDate: booking.createdAt
               }
+              
+              console.log(`📝 Enriched booking ${index + 1}:`, {
+                id: enrichedBooking.id,
+                confirmationNumber: enrichedBooking.confirmationNumber,
+                roomName: enrichedBooking.roomName,
+                checkInDate: enrichedBooking.checkInDate,
+                status: enrichedBooking.status
+              })
+              
+              return enrichedBooking
             } catch (roomError) {
               console.warn('Failed to fetch room details for booking:', booking.id, roomError)
               // Return booking with fallback image
@@ -77,10 +108,20 @@ const UserDashboard = () => {
           })
         )
         
-        console.log('📚 Enriched bookings with images:', enrichedBookings)
+        console.log('✅ Final enriched bookings:', enrichedBookings.length, 'bookings processed')
+        console.log('📚 Setting bookings in state:', enrichedBookings)
         setUserBookings(enrichedBookings)
       } catch (error) {
-        console.error('Error fetching bookings:', error)
+        console.error('❌ Error fetching bookings:', error)
+        console.error('❌ Error details:', {
+          message: error.message,
+          stack: error.stack,
+          response: error.response?.data
+        })
+        
+        // Show detailed error message if available
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to load bookings'
+        setBookingError(errorMessage)
         setUserBookings([]) // Set empty array on error
       } finally {
         setIsLoadingBookings(false)
@@ -89,6 +130,8 @@ const UserDashboard = () => {
 
     if (currentUser) {
       fetchUserBookings()
+    } else {
+      console.log('⚠️ No current user, skipping booking fetch')
     }
   }, [currentUser])
 
@@ -212,7 +255,17 @@ const UserDashboard = () => {
       console.log('✅ Booking cancelled successfully')
     } catch (error) {
       console.error('Error cancelling booking:', error)
-      // TODO: Show error message to user
+      console.error('Cancel error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
+      
+      // Show specific error message to user
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to cancel booking'
+      
+      // For now, just log it - TODO: Add proper error state management
+      alert(`Failed to cancel booking: ${errorMessage}`)
     }
   }
 
@@ -333,9 +386,10 @@ const UserDashboard = () => {
           </div>
         )}
 
+
         {/* Bookings Content */}
         <div className="dashboard-content">
-          {paginatedBookings.length === 0 ? (
+          {paginatedBookings.length === 0 && !bookingError ? (
             <div className="empty-state">
               {activeTab === 'upcoming' ? (
                 <div className="empty-content">

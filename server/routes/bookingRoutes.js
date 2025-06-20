@@ -87,4 +87,35 @@ router.delete('/:bookingId/cancel', verifyJWTToken, cancelBookingReservation)
 
 router.post('/:bookingId/send-email', verifyJWTToken, sendBookingEmail)
 
+// Test endpoint for debugging
+router.get('/test', verifyJWTToken, async (req, res) => {
+  try {
+    console.log('🧪 Booking test endpoint called')
+    console.log('🧪 User from token:', req.user)
+    
+    const { getFirestoreAdmin } = await import('../config/firebaseAdmin.js')
+    const firestore = getFirestoreAdmin()
+    
+    // Test basic Firestore connection
+    const testCollection = await firestore.collection('bookings').limit(1).get()
+    console.log('🧪 Firestore test query successful, found:', testCollection.size, 'documents')
+    
+    res.json({
+      success: true,
+      message: 'Booking test successful',
+      user: req.user,
+      firestoreWorking: true,
+      testDocuments: testCollection.size
+    })
+  } catch (error) {
+    console.error('🧪 Booking test failed:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Booking test failed',
+      error: error.message,
+      stack: error.stack
+    })
+  }
+})
+
 export default router

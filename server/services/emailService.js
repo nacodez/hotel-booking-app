@@ -22,6 +22,8 @@ class EmailService {
         })
         console.log('✅ Email service initialized with SMTP configuration')
         console.log(`📧 SMTP Host: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT}`)
+        console.log(`📧 SMTP User: ${process.env.EMAIL_USER}`)
+        console.log(`📧 From Address: ${process.env.EMAIL_FROM}`)
       } else {
         // Legacy Gmail service configuration
         this.transporter = nodemailer.createTransport({

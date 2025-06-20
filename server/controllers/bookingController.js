@@ -96,7 +96,11 @@ export const createBookingReservation = asyncHandler(async (req, res) => {
     console.log('✅ Booking created successfully:', bookingRef.id)
 
     // Invalidate availability cache for this room when booking is created
-    cacheService.invalidateAvailabilityCache(roomId)
+    try {
+      cacheService.invalidateAvailabilityCache(roomId)
+    } catch (cacheError) {
+      console.warn('⚠️ Cache invalidation failed during booking creation (non-critical):', cacheError.message)
+    }
 
     res.status(201).json({
       success: true,
@@ -117,40 +121,68 @@ export const createBookingReservation = asyncHandler(async (req, res) => {
 })
 
 export const getUserBookingHistory = asyncHandler(async (req, res) => {
-  const userId = req.user.uid
+  const userId = req.user.userId || req.user.uid
+
+  console.log('📚 getUserBookingHistory called for userId:', userId)
+  console.log('📚 req.user object:', JSON.stringify(req.user, null, 2))
 
   try {
+    console.log('📚 Querying bookings collection for userId:', userId)
+    
+    // First try without orderBy to avoid index issues
     const bookingsSnapshot = await firestore.collection('bookings')
       .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
       .get()
+
+    console.log('📚 Firestore query completed. Found', bookingsSnapshot.size, 'documents')
 
     const userBookings = []
     bookingsSnapshot.forEach(doc => {
+      console.log('📚 Processing booking doc:', doc.id, doc.data())
       userBookings.push({
         id: doc.id,
         ...doc.data()
       })
     })
 
+    // Sort in memory instead of in query to avoid index requirements
+    userBookings.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0)
+      const dateB = new Date(b.createdAt || 0)
+      return dateB - dateA // Descending order
+    })
+
+    console.log('📚 Final user bookings:', userBookings.length, 'items')
+
     res.json({
       success: true,
       data: userBookings
     })
   } catch (error) {
-    console.error('Error fetching user bookings:', error)
+    console.error('❌ Error fetching user bookings:', error)
+    console.error('❌ Error stack:', error.stack)
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    })
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch booking history'
+      message: `Failed to fetch booking history: ${error.message}`,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }
 })
 
 export const cancelBookingReservation = asyncHandler(async (req, res) => {
   const { bookingId } = req.params
-  const userId = req.user.uid
+  const userId = req.user.userId || req.user.uid
+
+  console.log('❌ Cancel booking request:', { bookingId, userId })
 
   if (!bookingId) {
+    console.log('❌ Missing booking ID')
     return res.status(400).json({
       success: false,
       message: 'Booking ID is required'
@@ -158,9 +190,11 @@ export const cancelBookingReservation = asyncHandler(async (req, res) => {
   }
 
   try {
+    console.log('❌ Fetching booking document:', bookingId)
     const bookingDoc = await firestore.collection('bookings').doc(bookingId).get()
 
     if (!bookingDoc.exists) {
+      console.log('❌ Booking not found:', bookingId)
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
@@ -168,21 +202,32 @@ export const cancelBookingReservation = asyncHandler(async (req, res) => {
     }
 
     const bookingData = bookingDoc.data()
+    console.log('❌ Booking data:', { 
+      bookingUserId: bookingData.userId, 
+      requestUserId: userId, 
+      status: bookingData.status,
+      roomId: bookingData.roomId 
+    })
 
     if (bookingData.userId !== userId) {
+      console.log('❌ User not authorized:', { bookingUserId: bookingData.userId, requestUserId: userId })
+      console.log('❌ Booking confirmation:', bookingData.confirmationNumber)
+      console.log('❌ This suggests a data inconsistency - booking appeared in user dashboard but belongs to different user')
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to cancel this booking'
+        message: `Not authorized to cancel this booking. This booking belongs to user ${bookingData.userId} but you are ${userId}`
       })
     }
 
     if (bookingData.status === 'cancelled') {
+      console.log('❌ Booking already cancelled')
       return res.status(400).json({
         success: false,
         message: 'Booking is already cancelled'
       })
     }
 
+    console.log('❌ Updating booking status to cancelled')
     await firestore.collection('bookings').doc(bookingId).update({
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
@@ -190,8 +235,16 @@ export const cancelBookingReservation = asyncHandler(async (req, res) => {
     })
 
     // Invalidate availability cache for this room when booking is cancelled
-    cacheService.invalidateAvailabilityCache(booking.roomId)
+    try {
+      console.log('❌ Invalidating cache for room:', bookingData.roomId)
+      cacheService.invalidateAvailabilityCache(bookingData.roomId)
+      console.log('✅ Cache invalidated successfully')
+    } catch (cacheError) {
+      console.warn('⚠️ Cache invalidation failed (non-critical):', cacheError.message)
+      // Don't fail the cancellation if cache invalidation fails
+    }
 
+    console.log('✅ Booking cancelled successfully')
     res.json({
       success: true,
       message: 'Booking cancelled successfully'
@@ -207,7 +260,7 @@ export const cancelBookingReservation = asyncHandler(async (req, res) => {
 
 export const getBookingDetails = asyncHandler(async (req, res) => {
   const { bookingId } = req.params
-  const userId = req.user.uid
+  const userId = req.user.userId || req.user.uid
 
   try {
     const bookingDoc = await firestore.collection('bookings').doc(bookingId).get()

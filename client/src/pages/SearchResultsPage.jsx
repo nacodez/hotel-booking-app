@@ -167,6 +167,7 @@ const SearchResultsPage = () => {
         room: {
           id: room.id,
           title: room.title,
+          image: room.images?.[0] || room.image || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
           price: room.price,
           pricePerNight: room.pricePerNight || room.price
         },
@@ -207,6 +208,7 @@ const SearchResultsPage = () => {
         bookingDetails: {
           roomId: room.id,
           roomName: room.title,
+          roomImage: room.images?.[0] || room.image || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
           pricePerNight: room.pricePerNight || room.price,
           ...searchCriteria
         }

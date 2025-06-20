@@ -26,11 +26,23 @@ app.use(helmet())
 app.use(rateLimitConfig)
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 }))
 
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
+
+// Handle preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL || 'http://localhost:3000')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  res.sendStatus(200)
+})
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {
@@ -40,7 +52,14 @@ app.use((req, res, next) => {
   next()
 })
 
-initializeFirebaseAdmin()
+console.log('🔥 Initializing Firebase Admin...')
+try {
+  initializeFirebaseAdmin()
+  console.log('✅ Firebase Admin initialized successfully')
+} catch (error) {
+  console.error('❌ Firebase Admin initialization failed:', error)
+  process.exit(1)
+}
 
 app.use('/api/rooms', roomRoutes)
 app.use('/api/bookings', bookingRoutes)
@@ -54,6 +73,66 @@ app.get('/api/health', (req, res) => {
     message: 'Hotel booking API is running',
     timestamp: new Date().toISOString()
   })
+})
+
+// Test Firebase connection
+app.get('/api/test-firebase', async (req, res) => {
+  try {
+    const { getFirestoreAdmin } = await import('./config/firebaseAdmin.js')
+    const firestore = getFirestoreAdmin()
+    
+    // Try a simple query to test connection
+    const testQuery = await firestore.collection('rooms').limit(1).get()
+    
+    res.json({
+      success: true,
+      message: 'Firebase connection successful',
+      documentsFound: testQuery.size
+    })
+  } catch (error) {
+    console.error('❌ Firebase test failed:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Firebase connection failed',
+      error: error.message
+    })
+  }
+})
+
+// Test auth middleware
+app.get('/api/test-auth', async (req, res) => {
+  try {
+    const { verifyJWTToken } = await import('./middleware/authMiddleware.js')
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      })
+    }
+    
+    // Manually verify token for testing
+    const decoded = await new Promise((resolve, reject) => {
+      verifyJWTToken(req, res, (err) => {
+        if (err) reject(err)
+        else resolve(req.user)
+      })
+    })
+    
+    res.json({
+      success: true,
+      message: 'Auth test successful',
+      user: req.user
+    })
+  } catch (error) {
+    console.error('❌ Auth test failed:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Auth test failed',
+      error: error.message
+    })
+  }
 })
 
 app.use('*', (req, res) => {

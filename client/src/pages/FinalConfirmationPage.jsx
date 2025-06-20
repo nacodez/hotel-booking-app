@@ -253,9 +253,12 @@ const FinalConfirmationPage = () => {
             <div className="room-section">
               <div className="room-image-container">
                 <img 
-                  src="/placeholder-room.jpg" 
+                  src={bookingDetails.roomImage || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80'} 
                   alt={bookingDetails.roomName}
                   className="room-image"
+                  onError={(e) => {
+                    e.target.src = 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80'
+                  }}
                 />
               </div>
               

@@ -52,6 +52,7 @@ const LoginPage = () => {
             bookingDetails: {
               roomId: bookingIntent.room.id,
               roomName: bookingIntent.room.title,
+              roomImage: bookingIntent.room.image,
               pricePerNight: bookingIntent.room.pricePerNight,
               ...bookingIntent.searchCriteria
             }

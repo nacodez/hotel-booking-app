@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { hotelBookingAPI, roomAPI } from '../services/apiService'
 import BookingProgressIndicator from '../components/BookingProgressIndicator'
 import DateSummaryBar from '../components/DateSummaryBar'
@@ -10,6 +11,7 @@ import '../styles/pagination.css'
 const SearchResultsPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { currentUser } = useAuth()
   const [availableRooms, setAvailableRooms] = useState([])
   const [filteredRooms, setFilteredRooms] = useState([])
   const [isLoadingResults, setIsLoadingResults] = useState(true)
@@ -156,6 +158,35 @@ const SearchResultsPage = () => {
   }
 
   const handleBookRoom = (room) => {
+    // Check if user is authenticated first
+    if (!currentUser) {
+      console.log('🔒 User not authenticated, redirecting to login')
+      
+      // Save booking intent for post-login redirect
+      const bookingIntent = {
+        room: {
+          id: room.id,
+          title: room.title,
+          price: room.price,
+          pricePerNight: room.pricePerNight || room.price
+        },
+        searchCriteria,
+        isBrowsingMode
+      }
+      
+      // Redirect to login with booking intent
+      navigate('/login', {
+        state: {
+          returnTo: isBrowsingMode ? '/' : '/booking/confirmation',
+          bookingIntent,
+          message: 'Please log in to continue with your booking'
+        }
+      })
+      return
+    }
+
+    console.log('✅ User authenticated, proceeding with booking')
+    
     // If in browsing mode, redirect to home to select dates first
     if (isBrowsingMode) {
       navigate('/?selectDates=true', {
@@ -170,7 +201,7 @@ const SearchResultsPage = () => {
       return
     }
 
-    // Normal booking flow with search criteria
+    // Normal booking flow with search criteria for authenticated users
     navigate('/booking/confirmation', {
       state: {
         bookingDetails: {

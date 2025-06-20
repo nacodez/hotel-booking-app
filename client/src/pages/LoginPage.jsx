@@ -18,13 +18,55 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
 
+  // Extract state from navigation
+  const { returnTo, bookingIntent, message } = location.state || {}
+
   // Redirect if already logged in
   useEffect(() => {
     if (currentUser) {
+      handlePostLoginRedirect()
+    }
+  }, [currentUser, navigate, location])
+
+  // Handle post-login redirect with booking intent
+  const handlePostLoginRedirect = () => {
+    console.log('🔄 Handling post-login redirect', { returnTo, bookingIntent })
+
+    if (returnTo && bookingIntent) {
+      // Reconstruct booking flow based on booking intent
+      if (bookingIntent.isBrowsingMode) {
+        console.log('🔄 Redirecting to home for date selection')
+        navigate('/?selectDates=true', {
+          state: {
+            selectedRoom: {
+              id: bookingIntent.room.id,
+              title: bookingIntent.room.title,
+              price: bookingIntent.room.price
+            }
+          }
+        })
+      } else {
+        console.log('🔄 Redirecting to booking confirmation')
+        navigate('/booking/confirmation', {
+          state: {
+            bookingDetails: {
+              roomId: bookingIntent.room.id,
+              roomName: bookingIntent.room.title,
+              pricePerNight: bookingIntent.room.pricePerNight,
+              ...bookingIntent.searchCriteria
+            }
+          }
+        })
+      }
+    } else if (returnTo) {
+      console.log('🔄 Redirecting to return URL:', returnTo)
+      navigate(returnTo, { replace: true })
+    } else {
+      console.log('🔄 Default redirect to dashboard')
       const from = location.state?.from?.pathname || '/dashboard'
       navigate(from, { replace: true })
     }
-  }, [currentUser, navigate, location])
+  }
 
   // Validation functions
   const validateEmail = (email) => {
@@ -82,9 +124,7 @@ const LoginPage = () => {
     try {
       await login(formData.email, formData.password, formData.rememberMe)
       
-      // Redirect to intended page or dashboard
-      const from = location.state?.from?.pathname || '/dashboard'
-      navigate(from, { replace: true })
+      // Redirect will be handled by useEffect when currentUser updates
     } catch (error) {
       console.error('Login error:', error)
       setValidationErrors({
@@ -143,6 +183,13 @@ const LoginPage = () => {
             <h1 className="auth-title">Welcome Back</h1>
             <p className="auth-subtitle">Sign in to your account to continue</p>
           </div>
+
+          {/* Booking Intent Message */}
+          {message && (
+            <div className="alert alert-info">
+              {message}
+            </div>
+          )}
 
           {/* Success Message */}
           {showForgotPassword && (

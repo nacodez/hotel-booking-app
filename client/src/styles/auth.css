@@ -441,6 +441,12 @@
   color: var(--color-error-dark);
 }
 
+.alert-info {
+  background-color: rgba(44, 82, 130, 0.1);
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 
 /* Tablet: 769px to 1024px */

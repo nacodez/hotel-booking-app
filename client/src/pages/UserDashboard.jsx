@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import BookingDetailsModal from '../components/BookingDetailsModal'
 import CancelBookingModal from '../components/CancelBookingModal'
+import { bookingAPI, roomAPI } from '../services/apiService'
 
 const UserDashboard = () => {
   const { currentUser, logoutUser } = useAuth()
@@ -21,74 +22,66 @@ const UserDashboard = () => {
 
   const bookingsPerPage = 6
 
-  // Mock data - replace with actual API calls
+  // Fetch real user bookings from Firebase
   useEffect(() => {
     const fetchUserBookings = async () => {
       try {
         setIsLoadingBookings(true)
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000))
         
-        const mockBookings = [
-          {
-            id: 1,
-            confirmationNumber: 'BK20254567890',
-            roomName: 'DELUXE OCEAN VIEW SUITE',
-            roomImage: '/placeholder-room.jpg',
-            checkInDate: '2025-01-15',
-            checkOutDate: '2025-01-18',
-            guestCount: 2,
-            totalAmount: 3240,
-            status: 'confirmed',
-            bookedDate: '2024-12-20',
-            contactInfo: {
-              name: 'John Doe',
-              email: 'john@example.com',
-              phone: '+65 1234 5678'
-            },
-            specialRequests: 'Late check-in requested'
-          },
-          {
-            id: 2,
-            confirmationNumber: 'BK20251234567',
-            roomName: 'PREMIUM CITY ROOM',
-            roomImage: '/placeholder-room.jpg',
-            checkInDate: '2024-12-01',
-            checkOutDate: '2024-12-03',
-            guestCount: 1,
-            totalAmount: 1500,
-            status: 'completed',
-            bookedDate: '2024-11-15',
-            contactInfo: {
-              name: 'John Doe',
-              email: 'john@example.com',
-              phone: '+65 1234 5678'
-            },
-            specialRequests: ''
-          },
-          {
-            id: 3,
-            confirmationNumber: 'BK20259876543',
-            roomName: 'EXECUTIVE BUSINESS SUITE',
-            roomImage: '/placeholder-room.jpg',
-            checkInDate: '2024-11-10',
-            checkOutDate: '2024-11-12',
-            guestCount: 2,
-            totalAmount: 2700,
-            status: 'cancelled',
-            bookedDate: '2024-10-25',
-            contactInfo: {
-              name: 'John Doe',
-              email: 'john@example.com',
-              phone: '+65 1234 5678'
-            },
-            specialRequests: ''
-          }
-        ]
+        // Fetch user's booking history
+        console.log('📚 Fetching user booking history...')
+        const bookingResponse = await bookingAPI.getUserBookingHistory()
         
-        setUserBookings(mockBookings)
+        if (!bookingResponse.success) {
+          throw new Error(bookingResponse.message || 'Failed to fetch bookings')
+        }
+
+        const bookings = bookingResponse.data || []
+        console.log('📚 Raw bookings from API:', bookings)
+
+        // Fetch room details for each booking to get images
+        const enrichedBookings = await Promise.all(
+          bookings.map(async (booking) => {
+            try {
+              // Get room details to fetch the image
+              const roomResponse = await roomAPI.getRoomDetails(booking.roomId)
+              const roomData = roomResponse.success ? roomResponse.data : null
+              
+              return {
+                ...booking,
+                roomImage: roomData?.images?.[0] || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
+                // Map Firebase structure to component expectations
+                contactInfo: {
+                  name: `${booking.guestInformation?.firstName || ''} ${booking.guestInformation?.lastName || ''}`.trim(),
+                  email: booking.guestInformation?.email || '',
+                  phone: booking.guestInformation?.phoneNumber || ''
+                },
+                specialRequests: booking.guestInformation?.specialRequests || '',
+                bookedDate: booking.createdAt
+              }
+            } catch (roomError) {
+              console.warn('Failed to fetch room details for booking:', booking.id, roomError)
+              // Return booking with fallback image
+              return {
+                ...booking,
+                roomImage: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
+                contactInfo: {
+                  name: `${booking.guestInformation?.firstName || ''} ${booking.guestInformation?.lastName || ''}`.trim(),
+                  email: booking.guestInformation?.email || '',
+                  phone: booking.guestInformation?.phoneNumber || ''
+                },
+                specialRequests: booking.guestInformation?.specialRequests || '',
+                bookedDate: booking.createdAt
+              }
+            }
+          })
+        )
+        
+        console.log('📚 Enriched bookings with images:', enrichedBookings)
+        setUserBookings(enrichedBookings)
       } catch (error) {
         console.error('Error fetching bookings:', error)
+        setUserBookings([]) // Set empty array on error
       } finally {
         setIsLoadingBookings(false)
       }
@@ -195,9 +188,16 @@ const UserDashboard = () => {
 
   const confirmCancelBooking = async () => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('❌ Cancelling booking:', bookingToCancel.id)
       
+      // Call real API to cancel booking
+      const response = await bookingAPI.cancelBookingReservation(bookingToCancel.id)
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to cancel booking')
+      }
+      
+      // Update local state to reflect cancellation
       setUserBookings(prev =>
         prev.map(booking =>
           booking.id === bookingToCancel.id
@@ -208,8 +208,11 @@ const UserDashboard = () => {
       
       setShowCancelModal(false)
       setBookingToCancel(null)
+      
+      console.log('✅ Booking cancelled successfully')
     } catch (error) {
       console.error('Error cancelling booking:', error)
+      // TODO: Show error message to user
     }
   }
 
@@ -264,17 +267,6 @@ const UserDashboard = () => {
   return (
     <div className="user-dashboard">
       <div className="container">
-        {/* Welcome Section */}
-        <div className="dashboard-header">
-          <div className="welcome-section">
-            <h1 className="welcome-title">
-              Welcome back, {currentUser.displayName || currentUser.email}!
-            </h1>
-            <p className="welcome-subtitle">
-              Manage your bookings and explore new destinations
-            </p>
-          </div>
-        </div>
 
         {/* Tab Navigation */}
         <div className="dashboard-tabs">

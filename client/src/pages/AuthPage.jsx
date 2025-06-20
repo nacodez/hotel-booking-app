@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const AuthPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, register } = useAuth()
   const [isLoginMode, setIsLoginMode] = useState(true)
   const [authCredentials, setAuthCredentials] = useState({
@@ -13,6 +14,9 @@ const AuthPage = () => {
   })
   const [isProcessingAuth, setIsProcessingAuth] = useState(false)
   const [authError, setAuthError] = useState('')
+
+  // Extract state from navigation
+  const { returnTo, bookingIntent, message } = location.state || {}
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -50,12 +54,52 @@ const AuthPage = () => {
         console.log('🔐 Backend registration successful!')
       }
       
-      navigate('/')
+      // Handle post-auth redirect with booking intent
+      handlePostAuthRedirect()
     } catch (error) {
       console.error('🔐 Auth error:', error)
       setAuthError(error.message)
     } finally {
       setIsProcessingAuth(false)
+    }
+  }
+
+  // Handle post-authentication redirect with booking intent
+  const handlePostAuthRedirect = () => {
+    console.log('🔄 Handling post-auth redirect', { returnTo, bookingIntent })
+
+    if (returnTo && bookingIntent) {
+      // Reconstruct booking flow based on booking intent
+      if (bookingIntent.isBrowsingMode) {
+        console.log('🔄 Redirecting to home for date selection')
+        navigate('/?selectDates=true', {
+          state: {
+            selectedRoom: {
+              id: bookingIntent.room.id,
+              title: bookingIntent.room.title,
+              price: bookingIntent.room.price
+            }
+          }
+        })
+      } else {
+        console.log('🔄 Redirecting to booking confirmation')
+        navigate('/booking/confirmation', {
+          state: {
+            bookingDetails: {
+              roomId: bookingIntent.room.id,
+              roomName: bookingIntent.room.title,
+              pricePerNight: bookingIntent.room.pricePerNight,
+              ...bookingIntent.searchCriteria
+            }
+          }
+        })
+      }
+    } else if (returnTo) {
+      console.log('🔄 Redirecting to return URL:', returnTo)
+      navigate(returnTo)
+    } else {
+      console.log('🔄 Default redirect to dashboard')
+      navigate('/dashboard')
     }
   }
 
@@ -74,6 +118,12 @@ const AuthPage = () => {
       <div className="auth-container">
         <div className="auth-form card">
           <h1>{isLoginMode ? 'Sign In' : 'Create Account'}</h1>
+          
+          {message && (
+            <div className="alert alert-info">
+              {message}
+            </div>
+          )}
           
           {authError && (
             <div className="alert alert-error">

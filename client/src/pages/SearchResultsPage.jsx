@@ -4,6 +4,8 @@ import { hotelBookingAPI, roomAPI } from '../services/apiService'
 import BookingProgressIndicator from '../components/BookingProgressIndicator'
 import DateSummaryBar from '../components/DateSummaryBar'
 import RoomCard from '../components/RoomCard'
+import PaginationControls from '../components/PaginationControls'
+import '../styles/pagination.css'
 
 const SearchResultsPage = () => {
   const location = useLocation()
@@ -15,6 +17,10 @@ const SearchResultsPage = () => {
   const [searchCriteria, setSearchCriteria] = useState({})
   const [isBrowsingMode, setIsBrowsingMode] = useState(false)
   const [sortBy, setSortBy] = useState('price-low')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pagination, setPagination] = useState(null)
+  const [isChangingPage, setIsChangingPage] = useState(false)
+  const roomsPerPage = 10
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search)
@@ -30,7 +36,7 @@ const SearchResultsPage = () => {
     const hasSearchCriteria = criteria.destinationCity && criteria.checkInDate && criteria.checkOutDate
     setIsBrowsingMode(!hasSearchCriteria)
 
-    const fetchRooms = async () => {
+    const fetchRooms = async (page = 1) => {
       try {
         setIsLoadingResults(true)
         setSearchError(null)
@@ -39,27 +45,33 @@ const SearchResultsPage = () => {
         
         if (hasSearchCriteria) {
           // Search with specific criteria
-          response = await hotelBookingAPI.searchAvailableRooms(criteria)
+          response = await hotelBookingAPI.searchAvailableRooms(criteria, page, roomsPerPage)
         } else {
           // Browse all rooms when no search criteria
-          response = await roomAPI.getAllRooms()
+          response = await roomAPI.getAllRooms(page, roomsPerPage)
         }
         
         if (response.success) {
           setAvailableRooms(response.data)
           setFilteredRooms(response.data)
+          setPagination(response.pagination)
         } else {
           throw new Error(response.message || 'Failed to fetch rooms')
         }
       } catch (error) {
         console.error('Error fetching rooms:', error)
         setSearchError('Unable to load rooms. Please try again later.')
+        setPagination(null)
       } finally {
         setIsLoadingResults(false)
+        setIsChangingPage(false)
       }
     }
 
-    fetchRooms()
+    // Reset pagination when search criteria change
+    setCurrentPage(1)
+    setPagination(null)
+    fetchRooms(1)
   }, [location.search])
 
   // Sort rooms
@@ -86,6 +98,42 @@ const SearchResultsPage = () => {
 
   const handleSortChange = (e) => {
     setSortBy(e.target.value)
+  }
+
+  // Handle page changes
+  const handlePageChange = async (newPage) => {
+    if (newPage === currentPage || isLoadingResults || isChangingPage) return
+    
+    setIsChangingPage(true)
+    setCurrentPage(newPage)
+    
+    try {
+      const hasSearchCriteria = searchCriteria.destinationCity && searchCriteria.checkInDate && searchCriteria.checkOutDate
+      let response
+      
+      if (hasSearchCriteria) {
+        response = await hotelBookingAPI.searchAvailableRooms(searchCriteria, newPage, roomsPerPage)
+      } else {
+        response = await roomAPI.getAllRooms(newPage, roomsPerPage)
+      }
+      
+      if (response.success) {
+        setAvailableRooms(response.data)
+        setFilteredRooms(response.data)
+        setPagination(response.pagination)
+        
+        // Scroll to top of results
+        const roomControls = document.querySelector('.room-controls')
+        if (roomControls) {
+          roomControls.scrollIntoView({ behavior: 'smooth' })
+        }
+      }
+    } catch (error) {
+      console.error('Error changing page:', error)
+      setSearchError('Unable to load page. Please try again.')
+    } finally {
+      setIsChangingPage(false)
+    }
   }
 
   // Date formatting functions
@@ -156,7 +204,7 @@ const SearchResultsPage = () => {
                 {isBrowsingMode ? 'Browse All Rooms' : 'Select Your Room'}
               </h1>
               <p className="results-count">
-                {isLoadingResults ? 'Loading...' : `${filteredRooms.length} rooms ${isBrowsingMode ? 'available' : 'found'}`}
+                {isLoadingResults ? 'Loading...' : pagination ? `${pagination.totalCount} rooms ${isBrowsingMode ? 'available' : 'found'}` : `${filteredRooms.length} rooms ${isBrowsingMode ? 'available' : 'found'}`}
               </p>
             </div>
           </div>
@@ -250,6 +298,16 @@ const SearchResultsPage = () => {
                 />
               ))}
             </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {!isLoadingResults && !searchError && pagination && (
+            <PaginationControls
+              pagination={pagination}
+              onPageChange={handlePageChange}
+              isLoading={isChangingPage}
+              showResultsInfo={true}
+            />
           )}
         </div>
       </div>

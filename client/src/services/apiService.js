@@ -172,8 +172,12 @@ export const hotelAPI = {
 
 export const roomAPI = {
   // Public functions
-  searchAvailableRooms: async (searchCriteria) => {
-    const response = await apiClient.post('/rooms/search', searchCriteria)
+  searchAvailableRooms: async (searchCriteria, page = 1, limit = 10) => {
+    const response = await apiClient.post('/rooms/search', {
+      ...searchCriteria,
+      page,
+      limit
+    })
     return response.data
   },
 
@@ -182,8 +186,10 @@ export const roomAPI = {
     return response.data
   },
 
-  getAllRooms: async () => {
-    const response = await apiClient.get('/rooms/all')
+  getAllRooms: async (page = 1, limit = 10) => {
+    const response = await apiClient.get('/rooms/all', {
+      params: { page, limit }
+    })
     return response.data
   },
 

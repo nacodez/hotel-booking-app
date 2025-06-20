@@ -28,47 +28,71 @@ const datesOverlap = (start1, end1, start2, end2) => {
   return s1 < e2 && e1 > s2
 }
 
-// Helper function to check room availability for specific dates
-const checkRoomAvailability = async (roomId, checkInDate, checkOutDate) => {
+// Optimized batch function to check availability for multiple rooms at once
+const checkBatchRoomAvailability = async (roomIds, checkInDate, checkOutDate) => {
   try {
-    console.log(`🔍 Checking availability for room ${roomId} from ${checkInDate} to ${checkOutDate}`)
+    console.log(`🔍 Batch checking availability for ${roomIds.length} rooms from ${checkInDate} to ${checkOutDate}`)
+    
+    if (roomIds.length === 0) return {}
     
     const bookingsRef = firestore.collection('bookings')
     const bookingsQuery = bookingsRef
-      .where('roomId', '==', roomId)
+      .where('roomId', 'in', roomIds)
       .where('status', 'in', ['confirmed', 'checked-in']) // Only active bookings
     
     const bookingsSnapshot = await bookingsQuery.get()
     
-    if (bookingsSnapshot.empty) {
-      console.log(`✅ No conflicting bookings found for room ${roomId}`)
-      return true
-    }
-    
-    // Check for date conflicts
-    let hasConflict = false
+    // Group bookings by roomId
+    const roomBookings = {}
     bookingsSnapshot.forEach(doc => {
       const booking = doc.data()
-      if (datesOverlap(checkInDate, checkOutDate, booking.checkInDate, booking.checkOutDate)) {
-        console.log(`❌ Date conflict found for room ${roomId}:`, {
-          requested: { checkInDate, checkOutDate },
-          existing: { checkInDate: booking.checkInDate, checkOutDate: booking.checkOutDate }
-        })
-        hasConflict = true
+      if (!roomBookings[booking.roomId]) {
+        roomBookings[booking.roomId] = []
+      }
+      roomBookings[booking.roomId].push(booking)
+    })
+    
+    // Check availability for each room
+    const availabilityResults = {}
+    roomIds.forEach(roomId => {
+      const bookings = roomBookings[roomId] || []
+      let hasConflict = false
+      
+      for (const booking of bookings) {
+        if (datesOverlap(checkInDate, checkOutDate, booking.checkInDate, booking.checkOutDate)) {
+          console.log(`❌ Date conflict found for room ${roomId}`)
+          hasConflict = true
+          break
+        }
+      }
+      
+      availabilityResults[roomId] = !hasConflict
+      if (!hasConflict) {
+        console.log(`✅ Room ${roomId} is available`)
       }
     })
     
-    return !hasConflict
+    return availabilityResults
   } catch (error) {
-    console.error(`Error checking availability for room ${roomId}:`, error)
-    return false
+    console.error('Error in batch availability check:', error)
+    // Return all rooms as unavailable on error
+    const errorResults = {}
+    roomIds.forEach(roomId => {
+      errorResults[roomId] = false
+    })
+    return errorResults
   }
 }
 
 export const searchAvailableRooms = asyncHandler(async (req, res) => {
-  const { destinationCity, checkInDate, checkOutDate, guestCount, roomCount } = req.body
+  const { destinationCity, checkInDate, checkOutDate, guestCount, roomCount, page = 1, limit = 10 } = req.body
+  
+  // Parse pagination parameters
+  const pageNum = parseInt(page)
+  const limitNum = parseInt(limit)
+  const offset = (pageNum - 1) * limitNum
 
-  console.log('🔍 Room search request:', { destinationCity, checkInDate, checkOutDate, guestCount, roomCount })
+  console.log('🔍 Room search request:', { destinationCity, checkInDate, checkOutDate, guestCount, roomCount, page: pageNum, limit: limitNum })
 
   if (!destinationCity || !checkInDate || !checkOutDate) {
     return res.status(400).json({
@@ -101,21 +125,36 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
     console.log('📊 Querying rooms collection...')
     const roomsRef = firestore.collection('rooms')
     
-    // Query for available rooms with proper status
-    let roomQuery = roomsRef
+    // Base query for available rooms
+    let baseQuery = roomsRef
       .where('available', '==', true)
       .where('roomStatus', '==', 'available')
     
-    // Note: Filtering by capacity in-memory to avoid index requirements for demo
+    // For browse mode, we can get count more efficiently
+    let totalSnapshot
+    if (!checkInDate || !checkOutDate) {
+      // Browse mode - just count available rooms quickly
+      console.log('🔥 Getting total count for browse mode...')
+      totalSnapshot = await baseQuery.select().get() // Only get document IDs, not full data
+    } else {
+      // Search mode - we need to be more conservative
+      console.log('🔥 Getting total count for search mode...')
+      totalSnapshot = await baseQuery.get()
+    }
+    console.log(`📋 Found ${totalSnapshot.size} total available rooms`)
     
-    console.log('🔥 Executing Firestore query...')
-    const roomSnapshot = await roomQuery.get()
-    console.log(`📋 Found ${roomSnapshot.size} potentially available rooms`)
+    // Apply pagination to the query
+    let paginatedQuery = baseQuery
+      .limit(limitNum)
+      .offset(offset)
+    
+    console.log('🔥 Executing paginated Firestore query...')
+    const roomSnapshot = await paginatedQuery.get()
+    console.log(`📋 Found ${roomSnapshot.size} rooms for page ${pageNum}`)
 
-    const availableRooms = []
-    
-    // Check each room for date availability and capacity
-    for (const doc of roomSnapshot.docs) {
+    // Pre-filter rooms by capacity in memory
+    const eligibleRooms = []
+    roomSnapshot.forEach(doc => {
       const roomData = doc.data()
       const roomId = doc.id
       
@@ -124,13 +163,22 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
       // Filter by capacity in-memory to avoid composite index requirement
       if (guestCount && roomData.capacity < parseInt(guestCount)) {
         console.log(`❌ Room ${roomId} capacity ${roomData.capacity} < required ${guestCount}`)
-        continue
+        return
       }
       
-      // Check if room is available for the requested dates
-      const isAvailable = await checkRoomAvailability(roomId, checkInDate, checkOutDate)
-      
-      if (isAvailable) {
+      eligibleRooms.push({ id: roomId, data: roomData })
+    })
+    
+    console.log(`📋 ${eligibleRooms.length} rooms passed capacity filter`)
+    
+    // Batch check availability for all eligible rooms
+    const roomIds = eligibleRooms.map(room => room.id)
+    const availabilityResults = await checkBatchRoomAvailability(roomIds, checkInDate, checkOutDate)
+    
+    // Build final available rooms list
+    const availableRooms = []
+    eligibleRooms.forEach(({ id: roomId, data: roomData }) => {
+      if (availabilityResults[roomId]) {
         console.log(`✅ Room ${roomId} is available`)
         
         // Calculate total nights and price
@@ -157,13 +205,27 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
       } else {
         console.log(`❌ Room ${roomId} is not available for requested dates`)
       }
-    }
+    })
 
-    console.log(`✅ Returning ${availableRooms.length} available rooms`)
+    console.log(`✅ Returning ${availableRooms.length} available rooms for page ${pageNum}`)
+
+    // Calculate pagination metadata
+    const totalCount = totalSnapshot.size
+    const totalPages = Math.ceil(totalCount / limitNum)
+    const hasNextPage = pageNum < totalPages
+    const hasPrevPage = pageNum > 1
 
     res.json({
       success: true,
       data: availableRooms,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalCount,
+        limit: limitNum,
+        hasNextPage,
+        hasPrevPage
+      },
       searchCriteria: {
         destinationCity,
         checkInDate,
@@ -223,15 +285,34 @@ export const getRoomDetails = asyncHandler(async (req, res) => {
 })
 
 export const getAllRooms = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query
+  
+  // Parse pagination parameters
+  const pageNum = parseInt(page)
+  const limitNum = parseInt(limit)
+  const offset = (pageNum - 1) * limitNum
+  
   try {
-    console.log('📊 Fetching all available rooms...')
+    console.log('📊 Fetching all available rooms...', { page: pageNum, limit: limitNum })
     const roomsRef = firestore.collection('rooms')
-    const roomSnapshot = await roomsRef
+    
+    // Base query for available rooms
+    let baseQuery = roomsRef
       .where('available', '==', true)
       .where('roomStatus', '==', 'available')
+    
+    // Get total count for pagination metadata (efficiently)
+    console.log('🔥 Getting total count...')
+    const totalSnapshot = await baseQuery.select().get() // Only get document IDs, not full data
+    console.log(`📋 Found ${totalSnapshot.size} total available rooms`)
+    
+    // Apply pagination to the query
+    const roomSnapshot = await baseQuery
+      .limit(limitNum)
+      .offset(offset)
       .get()
 
-    console.log(`📋 Found ${roomSnapshot.size} available rooms`)
+    console.log(`📋 Found ${roomSnapshot.size} rooms for page ${pageNum}`)
 
     const rooms = []
     roomSnapshot.forEach(doc => {
@@ -257,11 +338,25 @@ export const getAllRooms = asyncHandler(async (req, res) => {
       console.log(`✅ Added room to response: ${roomData.name} - Price: ${roomData.price}, PricePerNight: ${roomData.price}`)
     })
 
-    console.log(`✅ Returning ${rooms.length} formatted rooms`)
+    console.log(`✅ Returning ${rooms.length} formatted rooms for page ${pageNum}`)
+
+    // Calculate pagination metadata
+    const totalCount = totalSnapshot.size
+    const totalPages = Math.ceil(totalCount / limitNum)
+    const hasNextPage = pageNum < totalPages
+    const hasPrevPage = pageNum > 1
 
     res.json({
       success: true,
-      data: rooms
+      data: rooms,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalCount,
+        limit: limitNum,
+        hasNextPage,
+        hasPrevPage
+      }
     })
   } catch (error) {
     console.error('Error fetching all rooms:', error)

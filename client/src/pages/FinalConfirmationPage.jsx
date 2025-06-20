@@ -14,6 +14,9 @@ const FinalConfirmationPage = () => {
   const [isEmailSent, setIsEmailSent] = useState(false)
   const [emailSending, setEmailSending] = useState(false)
   const [emailError, setEmailError] = useState('')
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailAddress, setEmailAddress] = useState('')
+  const [emailValidationError, setEmailValidationError] = useState('')
 
   const bookingDetails = location.state?.bookingDetails
   const contactInfo = location.state?.contactInfo
@@ -103,11 +106,43 @@ const FinalConfirmationPage = () => {
     window.print()
   }
 
-  const handleEmailConfirmation = async () => {
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const popularDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com']
+    
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address'
+    }
+    
+    const domain = email.split('@')[1]?.toLowerCase()
+    if (!popularDomains.includes(domain)) {
+      return 'Please use a popular email provider (Gmail, Yahoo, Outlook, etc.)'
+    }
+    
+    return null
+  }
+
+  const handleEmailConfirmation = () => {
+    // Show email input modal first
+    setEmailAddress(contactInfo.email || '')
+    setShowEmailModal(true)
+    setEmailValidationError('')
+  }
+
+  const handleSendEmail = async () => {
     if (emailSending || isEmailSent) return
+
+    // Validate email
+    const validationError = validateEmail(emailAddress)
+    if (validationError) {
+      setEmailValidationError(validationError)
+      return
+    }
 
     setEmailSending(true)
     setEmailError('')
+    setShowEmailModal(false)
 
     try {
       // Get the real booking ID from location state
@@ -118,6 +153,7 @@ const FinalConfirmationPage = () => {
       }
 
       console.log('📧 Sending booking confirmation email for booking:', bookingId)
+      console.log('📧 Target email address:', emailAddress)
       
       const response = await bookingAPI.sendBookingEmail(bookingId)
       
@@ -400,6 +436,66 @@ const FinalConfirmationPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Email Confirmation Modal */}
+      {showEmailModal && (
+        <div className="modal-overlay" onClick={() => setShowEmailModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Email Confirmation</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowEmailModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <p>Enter a valid email address to receive your booking confirmation:</p>
+              
+              <div className="email-input-group">
+                <label htmlFor="emailAddress">Email Address</label>
+                <input
+                  id="emailAddress"
+                  type="email"
+                  value={emailAddress}
+                  onChange={(e) => {
+                    setEmailAddress(e.target.value)
+                    setEmailValidationError('')
+                  }}
+                  className={`modal-input ${emailValidationError ? 'error' : ''}`}
+                  placeholder="your-email@gmail.com"
+                  autoFocus
+                />
+                {emailValidationError && (
+                  <div className="input-error">{emailValidationError}</div>
+                )}
+              </div>
+              
+              <p className="email-note">
+                📧 We recommend using Gmail, Yahoo, Outlook, or other popular email providers
+              </p>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="modal-btn secondary"
+                onClick={() => setShowEmailModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="modal-btn primary"
+                onClick={handleSendEmail}
+                disabled={!emailAddress || emailValidationError}
+              >
+                Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

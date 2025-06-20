@@ -1,6 +1,7 @@
 import { getFirestoreAdmin } from '../config/firebaseAdmin.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import emailService from '../services/emailService.js'
+import cacheService from '../services/cacheService.js'
 
 const firestore = getFirestoreAdmin()
 
@@ -94,6 +95,9 @@ export const createBookingReservation = asyncHandler(async (req, res) => {
     const bookingRef = await firestore.collection('bookings').add(bookingData)
     console.log('✅ Booking created successfully:', bookingRef.id)
 
+    // Invalidate availability cache for this room when booking is created
+    cacheService.invalidateAvailabilityCache(roomId)
+
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
@@ -184,6 +188,9 @@ export const cancelBookingReservation = asyncHandler(async (req, res) => {
       cancelledAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     })
+
+    // Invalidate availability cache for this room when booking is cancelled
+    cacheService.invalidateAvailabilityCache(booking.roomId)
 
     res.json({
       success: true,

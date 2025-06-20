@@ -15,6 +15,7 @@ import {
   NotFoundError,
   ValidationError 
 } from '../middleware/errorHandler.js'
+import cacheService from '../services/cacheService.js'
 
 const firestore = getFirestoreAdmin()
 
@@ -28,12 +29,19 @@ const datesOverlap = (start1, end1, start2, end2) => {
   return s1 < e2 && e1 > s2
 }
 
-// Optimized batch function to check availability for multiple rooms at once
+// Optimized batch function to check availability for multiple rooms at once with caching
 const checkBatchRoomAvailability = async (roomIds, checkInDate, checkOutDate) => {
   try {
     console.log(`🔍 Batch checking availability for ${roomIds.length} rooms from ${checkInDate} to ${checkOutDate}`)
     
     if (roomIds.length === 0) return {}
+    
+    // Check cache first
+    const cachedResults = cacheService.getCachedAvailability(roomIds, checkInDate, checkOutDate)
+    if (cachedResults) {
+      console.log(`🎯 Using cached availability for ${roomIds.length} rooms`)
+      return cachedResults
+    }
     
     const bookingsRef = firestore.collection('bookings')
     const bookingsQuery = bookingsRef
@@ -71,6 +79,9 @@ const checkBatchRoomAvailability = async (roomIds, checkInDate, checkOutDate) =>
         console.log(`✅ Room ${roomId} is available`)
       }
     })
+    
+    // Cache the results
+    cacheService.cacheAvailability(roomIds, checkInDate, checkOutDate, availabilityResults)
     
     return availabilityResults
   } catch (error) {
@@ -122,6 +133,31 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
   }
 
   try {
+    // Check cache first for search results
+    const hasSearchCriteria = destinationCity && checkInDate && checkOutDate
+    if (hasSearchCriteria) {
+      const cachedSearch = cacheService.getCachedSearchResults(
+        { destinationCity, checkInDate, checkOutDate, guestCount, roomCount },
+        pageNum,
+        limitNum
+      )
+      if (cachedSearch) {
+        console.log(`🎯 Using cached search results for page ${pageNum}`)
+        return res.json({
+          success: true,
+          data: cachedSearch.data,
+          pagination: cachedSearch.pagination,
+          searchCriteria: {
+            destinationCity,
+            checkInDate,
+            checkOutDate,
+            guestCount,
+            roomCount
+          }
+        })
+      }
+    }
+
     console.log('📊 Querying rooms collection...')
     const roomsRef = firestore.collection('rooms')
     
@@ -130,18 +166,28 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
       .where('available', '==', true)
       .where('roomStatus', '==', 'available')
     
-    // For browse mode, we can get count more efficiently
-    let totalSnapshot
-    if (!checkInDate || !checkOutDate) {
-      // Browse mode - just count available rooms quickly
-      console.log('🔥 Getting total count for browse mode...')
-      totalSnapshot = await baseQuery.select().get() // Only get document IDs, not full data
+    // Check cached total count first
+    let totalCount = cacheService.getCachedTotalCount(hasSearchCriteria)
+    if (!totalCount) {
+      // For browse mode, we can get count more efficiently
+      let totalSnapshot
+      if (!checkInDate || !checkOutDate) {
+        // Browse mode - just count available rooms quickly
+        console.log('🔥 Getting total count for browse mode...')
+        totalSnapshot = await baseQuery.select().get() // Only get document IDs, not full data
+      } else {
+        // Search mode - we need to be more conservative
+        console.log('🔥 Getting total count for search mode...')
+        totalSnapshot = await baseQuery.get()
+      }
+      totalCount = totalSnapshot.size
+      console.log(`📋 Found ${totalCount} total available rooms`)
+      
+      // Cache the total count
+      cacheService.cacheTotalCount(totalCount, hasSearchCriteria)
     } else {
-      // Search mode - we need to be more conservative
-      console.log('🔥 Getting total count for search mode...')
-      totalSnapshot = await baseQuery.get()
+      console.log(`🎯 Using cached total count: ${totalCount}`)
     }
-    console.log(`📋 Found ${totalSnapshot.size} total available rooms`)
     
     // Apply pagination to the query
     let paginatedQuery = baseQuery
@@ -210,22 +256,23 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
     console.log(`✅ Returning ${availableRooms.length} available rooms for page ${pageNum}`)
 
     // Calculate pagination metadata
-    const totalCount = totalSnapshot.size
     const totalPages = Math.ceil(totalCount / limitNum)
     const hasNextPage = pageNum < totalPages
     const hasPrevPage = pageNum > 1
 
-    res.json({
+    const paginationData = {
+      currentPage: pageNum,
+      totalPages,
+      totalCount,
+      limit: limitNum,
+      hasNextPage,
+      hasPrevPage
+    }
+
+    const responseData = {
       success: true,
       data: availableRooms,
-      pagination: {
-        currentPage: pageNum,
-        totalPages,
-        totalCount,
-        limit: limitNum,
-        hasNextPage,
-        hasPrevPage
-      },
+      pagination: paginationData,
       searchCriteria: {
         destinationCity,
         checkInDate,
@@ -233,7 +280,20 @@ export const searchAvailableRooms = asyncHandler(async (req, res) => {
         guestCount,
         roomCount
       }
-    })
+    }
+
+    // Cache the search results if it's a search query
+    if (hasSearchCriteria) {
+      cacheService.cacheSearchResults(
+        { destinationCity, checkInDate, checkOutDate, guestCount, roomCount },
+        pageNum,
+        limitNum,
+        availableRooms,
+        paginationData
+      )
+    }
+
+    res.json(responseData)
   } catch (error) {
     console.error('❌ Error searching rooms:', error)
     console.error('❌ Error details:', error.message)
@@ -293,6 +353,17 @@ export const getAllRooms = asyncHandler(async (req, res) => {
   const offset = (pageNum - 1) * limitNum
   
   try {
+    // Check cache first for browse mode
+    const cachedRoomData = cacheService.getCachedRoomData(pageNum, limitNum, false)
+    if (cachedRoomData) {
+      console.log(`🎯 Using cached room data for browse page ${pageNum}`)
+      return res.json({
+        success: true,
+        data: cachedRoomData.data,
+        pagination: cachedRoomData.pagination
+      })
+    }
+
     console.log('📊 Fetching all available rooms...', { page: pageNum, limit: limitNum })
     const roomsRef = firestore.collection('rooms')
     
@@ -301,10 +372,20 @@ export const getAllRooms = asyncHandler(async (req, res) => {
       .where('available', '==', true)
       .where('roomStatus', '==', 'available')
     
-    // Get total count for pagination metadata (efficiently)
-    console.log('🔥 Getting total count...')
-    const totalSnapshot = await baseQuery.select().get() // Only get document IDs, not full data
-    console.log(`📋 Found ${totalSnapshot.size} total available rooms`)
+    // Check cached total count first
+    let totalCount = cacheService.getCachedTotalCount(false)
+    if (!totalCount) {
+      // Get total count for pagination metadata (efficiently)
+      console.log('🔥 Getting total count...')
+      const totalSnapshot = await baseQuery.select().get() // Only get document IDs, not full data
+      totalCount = totalSnapshot.size
+      console.log(`📋 Found ${totalCount} total available rooms`)
+      
+      // Cache the total count
+      cacheService.cacheTotalCount(totalCount, false)
+    } else {
+      console.log(`🎯 Using cached total count: ${totalCount}`)
+    }
     
     // Apply pagination to the query
     const roomSnapshot = await baseQuery
@@ -341,23 +422,29 @@ export const getAllRooms = asyncHandler(async (req, res) => {
     console.log(`✅ Returning ${rooms.length} formatted rooms for page ${pageNum}`)
 
     // Calculate pagination metadata
-    const totalCount = totalSnapshot.size
     const totalPages = Math.ceil(totalCount / limitNum)
     const hasNextPage = pageNum < totalPages
     const hasPrevPage = pageNum > 1
 
-    res.json({
+    const paginationData = {
+      currentPage: pageNum,
+      totalPages,
+      totalCount,
+      limit: limitNum,
+      hasNextPage,
+      hasPrevPage
+    }
+
+    const responseData = {
       success: true,
       data: rooms,
-      pagination: {
-        currentPage: pageNum,
-        totalPages,
-        totalCount,
-        limit: limitNum,
-        hasNextPage,
-        hasPrevPage
-      }
-    })
+      pagination: paginationData
+    }
+
+    // Cache the room data for browse mode
+    cacheService.cacheRoomData(pageNum, limitNum, rooms, paginationData, false)
+
+    res.json(responseData)
   } catch (error) {
     console.error('Error fetching all rooms:', error)
     res.status(500).json({
@@ -459,6 +546,9 @@ export const createRoom = asyncHandler(async (req, res) => {
     totalRooms: (hotel.totalRooms || 0) + 1
   })
 
+  // Invalidate room caches when new room is created
+  cacheService.invalidateRoomCaches()
+
   res.status(201).json({
     success: true,
     message: 'Room created successfully',
@@ -514,6 +604,9 @@ export const updateRoom = asyncHandler(async (req, res) => {
 
   await updateDocument(COLLECTIONS.ROOMS, roomId, filteredUpdates)
 
+  // Invalidate room caches when room is updated
+  cacheService.invalidateRoomCaches()
+
   res.json({
     success: true,
     message: 'Room updated successfully'
@@ -557,6 +650,9 @@ export const deleteRoom = asyncHandler(async (req, res) => {
       totalRooms: Math.max((hotel.totalRooms || 1) - 1, 0)
     })
   }
+
+  // Invalidate room caches when room is deleted
+  cacheService.invalidateRoomCaches()
 
   res.json({
     success: true,
@@ -630,6 +726,9 @@ export const toggleRoomAvailability = asyncHandler(async (req, res) => {
     status: newStatus,
     statusUpdatedAt: new Date()
   })
+
+  // Invalidate room caches when availability status changes
+  cacheService.invalidateRoomCaches()
 
   res.json({
     success: true,

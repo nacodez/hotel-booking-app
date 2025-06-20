@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { cacheManager } from './cacheService'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
@@ -173,23 +174,71 @@ export const hotelAPI = {
 export const roomAPI = {
   // Public functions
   searchAvailableRooms: async (searchCriteria, page = 1, limit = 10) => {
+    // Create cache key based on search criteria and pagination
+    const cacheKey = `search:${JSON.stringify({...searchCriteria, page, limit})}`
+    
+    // Try cache first (1 minute TTL for search results)
+    const cached = cacheManager.getMemory(cacheKey)
+    if (cached) {
+      console.log('🎯 Using cached search results')
+      return cached
+    }
+    
     const response = await apiClient.post('/rooms/search', {
       ...searchCriteria,
       page,
       limit
     })
+    
+    // Cache successful responses
+    if (response.data.success) {
+      cacheManager.setMemory(cacheKey, response.data, 60000) // 1 minute
+    }
+    
     return response.data
   },
 
   getRoomDetails: async (roomId) => {
+    // Create cache key for room details
+    const cacheKey = `room:${roomId}`
+    
+    // Try cache first (5 minutes TTL for room details)
+    const cached = cacheManager.getMemory(cacheKey)
+    if (cached) {
+      console.log('🎯 Using cached room details')
+      return cached
+    }
+    
     const response = await apiClient.get(`/rooms/${roomId}`)
+    
+    // Cache successful responses
+    if (response.data.success) {
+      cacheManager.setMemory(cacheKey, response.data, 300000) // 5 minutes
+    }
+    
     return response.data
   },
 
   getAllRooms: async (page = 1, limit = 10) => {
+    // Create cache key for browse mode
+    const cacheKey = `browse:${page}:${limit}`
+    
+    // Try cache first (3 minutes TTL for browse results)
+    const cached = cacheManager.getMemory(cacheKey)
+    if (cached) {
+      console.log('🎯 Using cached browse results')
+      return cached
+    }
+    
     const response = await apiClient.get('/rooms/all', {
       params: { page, limit }
     })
+    
+    // Cache successful responses
+    if (response.data.success) {
+      cacheManager.setMemory(cacheKey, response.data, 180000) // 3 minutes
+    }
+    
     return response.data
   },
 
@@ -223,6 +272,18 @@ export const roomAPI = {
 export const bookingAPI = {
   createBookingReservation: async (bookingDetails) => {
     const response = await apiClient.post('/bookings/create', bookingDetails)
+    
+    // Clear cache when booking is created (affects availability)
+    if (response.data.success) {
+      // Clear all search and browse caches as availability has changed
+      const keys = Object.keys(cacheManager.getStats().memory.keys || [])
+      keys.forEach(key => {
+        if (key.includes('search:') || key.includes('browse:')) {
+          cacheManager.deleteMemory(key)
+        }
+      })
+    }
+    
     return response.data
   },
 
@@ -238,6 +299,18 @@ export const bookingAPI = {
 
   cancelBookingReservation: async (bookingId) => {
     const response = await apiClient.delete(`/bookings/${bookingId}/cancel`)
+    
+    // Clear cache when booking is cancelled (affects availability)
+    if (response.data.success) {
+      // Clear all search and browse caches as availability has changed
+      const keys = Object.keys(cacheManager.getStats().memory.keys || [])
+      keys.forEach(key => {
+        if (key.includes('search:') || key.includes('browse:')) {
+          cacheManager.deleteMemory(key)
+        }
+      })
+    }
+    
     return response.data
   },
 

@@ -299,14 +299,23 @@ export const getBookingDetails = asyncHandler(async (req, res) => {
 
 export const sendBookingEmail = asyncHandler(async (req, res) => {
   const { bookingId } = req.params
+  const { email } = req.body // Get validated email from request body
   const userId = req.user?.uid || req.user?.userId || req.user?.id
 
   console.log('📧 Email request for booking:', bookingId)
+  console.log('📧 Validated email address:', email)
 
   if (!bookingId) {
     return res.status(400).json({
       success: false,
       message: 'Booking ID is required'
+    })
+  }
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email address is required'
     })
   }
 
@@ -330,9 +339,21 @@ export const sendBookingEmail = asyncHandler(async (req, res) => {
       })
     }
 
-    // Send email
+    // Override the booking email with the validated email
+    const bookingDataWithValidatedEmail = {
+      ...bookingData,
+      guestInformation: {
+        ...bookingData.guestInformation,
+        email: email // Use validated email from modal
+      }
+    }
+
+    // Send email with overridden email address
     console.log('📧 Sending email for booking:', bookingId)
-    const emailResult = await emailService.sendBookingConfirmation(bookingId)
+    console.log('📧 Original booking email:', bookingData.guestInformation.email)
+    console.log('📧 Using validated email:', email)
+    
+    const emailResult = await emailService.sendBookingConfirmation(bookingDataWithValidatedEmail)
     
     res.json({
       success: true,

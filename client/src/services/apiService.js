@@ -314,8 +314,10 @@ export const bookingAPI = {
     return response.data
   },
 
-  sendBookingEmail: async (bookingId) => {
-    const response = await apiClient.post(`/bookings/${bookingId}/send-email`)
+  sendBookingEmail: async (bookingId, emailAddress) => {
+    const response = await apiClient.post(`/bookings/${bookingId}/send-email`, {
+      email: emailAddress
+    })
     return response.data
   }
 }

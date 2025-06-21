@@ -155,7 +155,7 @@ const FinalConfirmationPage = () => {
       console.log('📧 Sending booking confirmation email for booking:', bookingId)
       console.log('📧 Target email address:', emailAddress)
       
-      const response = await bookingAPI.sendBookingEmail(bookingId)
+      const response = await bookingAPI.sendBookingEmail(bookingId, emailAddress)
       
       if (response.success) {
         setIsEmailSent(true)

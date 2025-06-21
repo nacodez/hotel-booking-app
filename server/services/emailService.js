@@ -1,21 +1,30 @@
-import axios from 'axios'
+import nodemailer from 'nodemailer'
 import { getDocument, COLLECTIONS } from '../config/firebaseAdmin.js'
 
 class EmailService {
   constructor() {
+    this.transporter = null
     this.initialize()
   }
 
   initialize() {
     try {
-      // Use Mailgun REST API for reliable email sending
-      this.mailgunDomain = process.env.MAILGUN_DOMAIN || 'sandbox70d95418398f435397ec204629eee861.mailgun.org'
-      this.mailgunApiKey = process.env.MAILGUN_API_KEY || 'key-84334f0a43250ed8881ac25491a6e833'
-      this.fromEmail = process.env.EMAIL_FROM || 'Hotel Booking <noreply@sandbox70d95418398f435397ec204629eee861.mailgun.org>'
+      // Create Gmail SMTP transporter
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        host: process.env.EMAIL_HOST,
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      })
       
-      console.log('✅ Email service initialized with Mailgun REST API')
-      console.log(`📧 Mailgun Domain: ${this.mailgunDomain}`)
-      console.log(`📧 From Address: ${this.fromEmail}`)
+      console.log('✅ Email service initialized with Gmail SMTP')
+      console.log(`📧 Gmail Host: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT}`)
+      console.log(`📧 Gmail User: ${process.env.EMAIL_USER}`)
+      console.log(`📧 From Address: ${process.env.EMAIL_FROM}`)
     } catch (error) {
       console.error('❌ Email service initialization failed:', error)
     }
@@ -256,6 +265,10 @@ Thank you for choosing our hotel!
 
   async sendBookingConfirmation(bookingIdOrData) {
     try {
+      if (!this.transporter) {
+        throw new Error('Email service not initialized')
+      }
+
       let bookingData, roomData = null
 
       // Check if we received a booking ID (string) or booking data (object)
@@ -289,55 +302,43 @@ Thank you for choosing our hotel!
       // Generate email content
       const emailContent = this.generateBookingConfirmationEmail(bookingData, roomData)
 
-      // Send email using Mailgun REST API
-      const mailgunUrl = `https://api.mailgun.net/v3/${this.mailgunDomain}/messages`
-      
-      const formData = new URLSearchParams()
-      formData.append('from', this.fromEmail)
-      formData.append('to', bookingData.guestInformation.email)
-      formData.append('subject', emailContent.subject)
-      formData.append('html', emailContent.html)
-      formData.append('text', emailContent.text)
+      // Send email using Gmail SMTP
+      const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to: bookingData.guestInformation.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text
+      }
 
-      const response = await axios.post(mailgunUrl, formData, {
-        auth: {
-          username: 'api',
-          password: this.mailgunApiKey
-        },
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      })
+      console.log(`📧 Sending email to: ${bookingData.guestInformation.email}`)
+      console.log(`📧 From: ${process.env.EMAIL_FROM}`)
 
-      console.log('✅ Booking confirmation email sent via Mailgun REST API:', response.data.id)
+      const result = await this.transporter.sendMail(mailOptions)
+      console.log('✅ Booking confirmation email sent via Gmail SMTP:', result.messageId)
       
       return {
         success: true,
-        messageId: response.data.id,
+        messageId: result.messageId,
         recipient: bookingData.guestInformation.email
       }
     } catch (error) {
-      console.error('❌ Failed to send booking confirmation email:', error.response?.data || error.message)
+      console.error('❌ Failed to send booking confirmation email:', error.message)
       throw error
     }
   }
 
   async testEmailConnection() {
     try {
-      // Test Mailgun API connection by verifying domain
-      const mailgunUrl = `https://api.mailgun.net/v3/${this.mailgunDomain}`
+      if (!this.transporter) {
+        throw new Error('Email service not initialized')
+      }
       
-      await axios.get(mailgunUrl, {
-        auth: {
-          username: 'api',
-          password: this.mailgunApiKey
-        }
-      })
-      
-      console.log('✅ Mailgun API connection verified')
+      await this.transporter.verify()
+      console.log('✅ Gmail SMTP connection verified')
       return true
     } catch (error) {
-      console.error('❌ Mailgun API connection failed:', error.response?.data || error.message)
+      console.error('❌ Gmail SMTP connection failed:', error.message)
       return false
     }
   }
@@ -348,13 +349,13 @@ Thank you for choosing our hotel!
       const isConnected = await this.testEmailConnection()
       return {
         success: isConnected,
-        message: isConnected ? 'Mailgun API connection verified' : 'Mailgun API connection failed',
+        message: isConnected ? 'Gmail SMTP connection verified' : 'Gmail SMTP connection failed',
         error: isConnected ? null : 'Connection test failed'
       }
     } catch (error) {
       return {
         success: false,
-        message: 'Mailgun API connection failed',
+        message: 'Gmail SMTP connection failed',
         error: error.message
       }
     }

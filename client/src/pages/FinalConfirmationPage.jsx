@@ -21,6 +21,13 @@ const FinalConfirmationPage = () => {
   const bookingDetails = location.state?.bookingDetails
   const contactInfo = location.state?.contactInfo
 
+  // Debug logging to check room image data
+  useEffect(() => {
+    console.log('🖼️ FinalConfirmationPage - Full location.state:', location.state)
+    console.log('🖼️ FinalConfirmationPage - bookingDetails:', bookingDetails)
+    console.log('🖼️ FinalConfirmationPage - roomImage:', bookingDetails?.roomImage)
+  }, [])
+
   useEffect(() => {
     // Use confirmation number from backend or generate fallback
     const backendConfirmationNumber = location.state?.confirmationNumber
@@ -291,7 +298,7 @@ const FinalConfirmationPage = () => {
                 <img 
                   src={bookingDetails.roomImage || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80'} 
                   alt={bookingDetails.roomName}
-                  className="room-image"
+                  className="summary-room-image"
                   onError={(e) => {
                     e.target.src = 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80'
                   }}

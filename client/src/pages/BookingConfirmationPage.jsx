@@ -133,6 +133,10 @@ const BookingConfirmationPage = () => {
       const response = await hotelBookingAPI.createBookingReservation(bookingPayload)
       
       if (response.success) {
+        // Debug logging before navigation
+        console.log('🖼️ BookingConfirmationPage - Sending bookingDetails:', bookingDetails)
+        console.log('🖼️ BookingConfirmationPage - roomImage in bookingDetails:', bookingDetails?.roomImage)
+        
         // Navigate to final confirmation with booking ID
         navigate('/booking/final-confirmation', {
           state: {

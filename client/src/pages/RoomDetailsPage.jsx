@@ -19,7 +19,11 @@ const RoomDetailsPage = () => {
     const fetchRoomDetails = async () => {
       try {
         setIsLoadingRoom(true)
-        const room = await hotelBookingAPI.getRoomDetails(roomId)
+        const response = await hotelBookingAPI.getRoomDetails(roomId)
+        console.log('🖼️ RoomDetailsPage - Full API response:', response)
+        const room = response.success ? response.data : response
+        console.log('🖼️ RoomDetailsPage - Room data:', room)
+        console.log('🖼️ RoomDetailsPage - Room images:', room.images)
         setRoomDetails(room)
       } catch (error) {
         console.error('Error fetching room details:', error)
@@ -48,6 +52,7 @@ const RoomDetailsPage = () => {
     const bookingDetails = {
       roomId: roomDetails.id,
       roomName: roomDetails.name,
+      roomImage: roomDetails.images?.[0] || roomDetails.image || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80',
       pricePerNight: roomDetails.pricePerNight,
       ...bookingDates
     }
